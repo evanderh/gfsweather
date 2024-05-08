@@ -10,12 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "cesium": "^1.117.0",
+    "leaflet": "^1.9.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "resium": "^1.17.3"
+    "react-leaflet": "^4.2.1"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.12",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
@@ -25,7 +26,6 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.6",
     "typescript": "^5.2.2",
-    "vite": "^5.2.0",
-    "vite-plugin-cesium": "^1.2.22"
+    "vite": "^5.2.0"
   }
 }

@@ -1,19 +1,26 @@
 import './App.css'
-
-import { Viewer, Entity, PointGraphics } from "resium";
-import { Cartesian3 } from "cesium";
-
-const position = Cartesian3.fromDegrees(-74.0707383, 40.7117244, 100);
+import { MapContainer, TileLayer, WMSTileLayer, useMap } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css';
+// import surface from './assets/surface.json';
 
 function App() {
   return (
-    <Viewer
-      full
+    <MapContainer
+      style={{ height: '100vh', width: '100wh' }}
+      center={[38, -95]}
+      zoom={5}
     >
-      <Entity position={position} name="Tokyo" description="Hello, world.">
-        <PointGraphics pixelSize={10} />
-      </Entity>
-    </Viewer>
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <WMSTileLayer
+        url='https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi'
+        layers='nexrad-n0r-900913'
+        format='image/png'
+        transparent={true}
+      />
+    </MapContainer> 
   )
 }
 
