@@ -9,17 +9,33 @@ function App() {
       style={{ height: '100vh', width: '100wh' }}
       center={[38, -95]}
       zoom={5}
+      minZoom={4}
+      maxZoom={8}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        // terrain
+        url='http://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}'
+        // satellite
+        // url='http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
+        subdomains={['mt0','mt1','mt2','mt3']}
+        // url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <WMSTileLayer
-        url='https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi'
-        layers='nexrad-n0r-900913'
+
+      <TileLayer
+        url='./src/assets/tiles/{z}/{x}/{y}.png'
+        tms={true}
+        opacity={0.7}
+        minZoom={4}
+        maxZoom={8}
+      />
+
+      {/* <WMSTileLayer
+        url='https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi'
+        layers='nexrad-n0q-900913'
         format='image/png'
         transparent={true}
-      />
+      /> */}
     </MapContainer> 
   )
 }
