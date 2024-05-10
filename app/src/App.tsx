@@ -1,41 +1,47 @@
 import './App.css'
-import { MapContainer, TileLayer, WMSTileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css';
-// import surface from './assets/surface.json';
+
+import { useRef } from 'react';
+import L, { Control } from 'leaflet';
+import { LayersControl, MapContainer, TileLayer } from 'react-leaflet';
+
+import VectorLayer from './VectorLayer';
+import wind from './assets/wind-global.json';
 
 function App() {
+  const center: L.LatLngTuple = [47, -95];
+  const layersControlRef = useRef<Control.Layers>(null);
+
   return (
     <MapContainer
       style={{ height: '100vh', width: '100wh' }}
-      center={[38, -95]}
-      zoom={5}
-      minZoom={4}
-      maxZoom={8}
+      center={center}
+      zoom={7}
+      minZoom={5}
+      maxZoom={11}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        // terrain
-        url='http://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}'
-        // satellite
-        // url='http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
-        subdomains={['mt0','mt1','mt2','mt3']}
-        // url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.jpg"
+        attribution='&copy; CNES, Distribution Airbus DS, © Airbus DS, © PlanetObserver (Contains Copernicus Data) | &copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        minZoom={0}
+        maxZoom={20}
       />
 
-      <TileLayer
-        url='./src/assets/tiles/{z}/{x}/{y}.png'
-        tms={true}
-        opacity={0.7}
-        minZoom={4}
-        maxZoom={8}
-      />
+      <LayersControl ref={layersControlRef} >
 
-      {/* <WMSTileLayer
-        url='https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi'
-        layers='nexrad-n0q-900913'
-        format='image/png'
-        transparent={true}
-      /> */}
+        <LayersControl.Overlay name='Temperature' checked>
+          <TileLayer
+            url='./src/assets/tiles/{z}/{x}/{y}.png'
+            tms={true}
+            opacity={0.4}
+          />
+        </LayersControl.Overlay>
+
+        <LayersControl.Overlay name='Velocity' checked>
+          <VectorLayer data={wind} />
+        </LayersControl.Overlay>
+
+      </LayersControl>
     </MapContainer> 
   )
 }
