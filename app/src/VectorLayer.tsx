@@ -19,12 +19,14 @@ const VectorLayer = ({ data }: Props) => {
       layerRef.current = L.velocityLayer({
         displayValues: true,
         displayOptions: {
-          velocityType: "GBR Water",
+          velocityType: "Global Wind",
           position: "bottomleft",
           emptyString: "No water data"
         },
+        velocityScale: 0.01,
+        opacity: 0.8,
+        colorScale: ['#fff'],
         data,
-        maxVelocity: 10,
       })
     }
 

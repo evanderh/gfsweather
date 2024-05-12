@@ -1,39 +1,35 @@
 import './App.css'
 import 'leaflet/dist/leaflet.css';
 
-import { useRef } from 'react';
-import L, { Control } from 'leaflet';
-import { LayersControl, MapContainer, TileLayer } from 'react-leaflet';
+import L from 'leaflet';
+import { LayersControl, MapContainer, TileLayer, WMSTileLayer } from 'react-leaflet';
 
 import VectorLayer from './VectorLayer';
-import wind from './assets/wind-global.json';
+import wind from './assets/wind.json';
 
 function App() {
-  const center: L.LatLngTuple = [47, -95];
-  const layersControlRef = useRef<Control.Layers>(null);
+  const center: L.LatLngTuple = [36, -119];
 
   return (
     <MapContainer
       style={{ height: '100vh', width: '100wh' }}
       center={center}
-      zoom={7}
-      minZoom={5}
-      maxZoom={11}
+      zoom={8}
+      minZoom={3}
+      maxZoom={12}
     >
       <TileLayer
-        url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.jpg"
-        attribution='&copy; CNES, Distribution Airbus DS, © Airbus DS, © PlanetObserver (Contains Copernicus Data) | &copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        minZoom={0}
-        maxZoom={20}
+        url='http://localhost:8080/styles/osm-bright/256/{z}/{x}/{y}.png'
+        zIndex={4}
+        attribution=''
       />
-
-      <LayersControl ref={layersControlRef} >
+     
+      <LayersControl>
 
         <LayersControl.Overlay name='Temperature' checked>
           <TileLayer
             url='./src/assets/tiles/{z}/{x}/{y}.png'
             tms={true}
-            opacity={0.4}
           />
         </LayersControl.Overlay>
 
@@ -41,7 +37,19 @@ function App() {
           <VectorLayer data={wind} />
         </LayersControl.Overlay>
 
+        <LayersControl.Overlay name='Radar'>
+          <WMSTileLayer
+            url='https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi'
+            layers='nexrad-n0q-900913'
+            format='image/png'
+            transparent
+            zIndex={3}
+          />
+        </LayersControl.Overlay>
+
       </LayersControl>
+      
+
     </MapContainer> 
   )
 }
