@@ -1,4 +1,5 @@
 **/assets/**
+server/venv
 
 # Logs
 logs
