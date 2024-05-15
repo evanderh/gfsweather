@@ -189,8 +189,8 @@
       }
     },
     {
-      "id": "water",
-      "type": "fill",
+      "id": "water-line",
+      "type": "line",
       "metadata": {
         "mapbox:group": "1444849382550.77"
       },
@@ -200,16 +200,41 @@
         "visibility": "visible"
       },
       "paint": {
-        "fill-color": "hsl(210, 67%, 85%)",
-        "fill-opacity": 0.1
+        "line-color": "hsl(248, 7%, 40%)",
+        "line-width": {
+          "base": 1,
+          "stops": [
+            [
+              0,
+              0.6
+            ],
+            [
+              4,
+              1
+            ],
+            [
+              5,
+              1.4
+            ],
+            [
+              12,
+              2.4
+            ]
+          ]
+        }
       }
     },
     {
       "id": "water-pattern",
+      "type": "fill",
       "metadata": {
         "mapbox:group": "1444849382550.77"
       },
-      "ref": "water",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "layout": {
+        "visibility": "visible"
+      },
       "paint": {
         "fill-translate": [
           0,
@@ -2133,17 +2158,15 @@
       "source": "openmaptiles",
       "source-layer": "boundary",
       "filter": [
-        "in",
-        "admin_level",
-        4,
-        6,
-        8
+        "all",
+        ["in", "admin_level", 4, 6, 8],
+        ["!=", "maritime", 1]
       ],
       "layout": {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#9e9cab",
+        "line-color": "hsl(248, 7%, 50%)",
         "line-dasharray": [
           3,
           1,
@@ -2175,16 +2198,16 @@
       "source": "openmaptiles",
       "source-layer": "boundary",
       "filter": [
-        "==",
-        "admin_level",
-        2
+        "all",
+        ["==", "admin_level", 2],
+        ["!=", "maritime", 1]
       ],
       "layout": {
         "line-cap": "round",
         "line-join": "round"
       },
       "paint": {
-        "line-color": "hsl(248, 7%, 66%)",
+        "line-color": "hsl(248, 7%, 50%)",
         "line-width": {
           "base": 1,
           "stops": [

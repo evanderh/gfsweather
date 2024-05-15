@@ -16,7 +16,7 @@ function App() {
       center={center}
       zoom={6}
       minZoom={2}
-      maxZoom={10}
+      maxZoom={9}
     >
       <TileLayer
         url='http://localhost:8080/styles/osm-bright/256/{z}/{x}/{y}.png'

@@ -25,7 +25,7 @@ const VectorLayer = ({ data }: Props) => {
         },
         velocityScale: 0.01,
         opacity: 0.8,
-        colorScale: ['#fff'],
+        colorScale: ['#888'],
         data,
       })
     }
