@@ -7,10 +7,26 @@ services:
     volumes:
       - ./src:/app/src
 
+  db:
+    container_name: postgis
+    image: postgis/postgis:16-3.4
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+      - POSTGIS_GDAL_ENABLED_DRIVERS=ENABLE_ALL
+      - POSTGIS_ENABLE_OUTDB_RASTERS=1
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+
   tileserver:
     image: maptiler/tileserver-gl
     ports:
       - "8080:8080"
     volumes:
       - ./tileserver:/data
-      
+
+volumes:
+  postgres_data:

@@ -14,9 +14,9 @@ function App() {
     <MapContainer
       style={{ height: '100vh', width: '100wh' }}
       center={center}
-      zoom={8}
-      minZoom={3}
-      maxZoom={12}
+      zoom={6}
+      minZoom={2}
+      maxZoom={10}
     >
       <TileLayer
         url='http://localhost:8080/styles/osm-bright/256/{z}/{x}/{y}.png'
@@ -28,8 +28,8 @@ function App() {
 
         <LayersControl.Overlay name='Temperature' checked>
           <TileLayer
-            url='./src/assets/tiles/{z}/{x}/{y}.png'
-            tms={true}
+            url='http://localhost:8000/tiles/{z}/{x}/{y}.png'
+            opacity={0.8}
           />
         </LayersControl.Overlay>
 
