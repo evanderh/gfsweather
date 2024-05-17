@@ -1,6 +1,9 @@
 **/assets/**
 server/venv
 server/data
+etl/venv
+etl/data
+etl/debug.log
 
 # Logs
 logs
