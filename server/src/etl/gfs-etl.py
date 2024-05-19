@@ -1,16 +1,25 @@
 import os
-import time
 import boto3
 import json
 import re
 import logging
 import shutil
 import tempfile
+import psycopg2
+import subprocess
 from logging.handlers import RotatingFileHandler
 from botocore.exceptions import BotoCoreError, ClientError
 from osgeo import gdal
 
 QUEUE_NAME = 'gfsweather'
+RASTER_TABLE = 'public.rasters'
+DB_PARAMS = {
+    'dbname': 'postgres',
+    'user': 'postgres',
+    'password': 'postgres',
+    'host': 'localhost',
+    'port': '5432'
+}
 
 s3 = boto3.client('s3')
 sqs = boto3.client('sqs')
@@ -20,16 +29,13 @@ SCALAR_BANDS = [
     # (grib element, grib short name)
     ('TMP', '2-HTGL')
 ]
-
-def make_band_filter(bands):
-    def band_filter(band):
-        metadata = band['metadata']['']
-        for (element, short_name) in bands:
-            if (element == metadata['GRIB_ELEMENT'] and
-                short_name == metadata['GRIB_SHORT_NAME']):
-                return True
-        return False
-    return band_filter
+def band_filter(band):
+    metadata = band['metadata']['']
+    for (element, short_name) in SCALAR_BANDS:
+        if (element == metadata['GRIB_ELEMENT'] and
+            short_name == metadata['GRIB_SHORT_NAME']):
+            return True
+    return False
 
 
 class GFSSource():
@@ -37,24 +43,27 @@ class GFSSource():
         self.bucket = bucket
         self.key = key
         self.metadata = metadata
+        self.raster_key = metadata['forecast_hour'] 
     
     def __enter__(self):
         self.tmpdir = tempfile.mkdtemp()
-        self.filename = os.path.join(self.tmpdir, 'gfs.grib')
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         shutil.rmtree(self.tmpdir)
 
     def etl(self):
-        logging.info('Starting ETL for %s' % self.key)
+        logging.info('Starting ETL: %s' % self.key)
         self.extract()
-        self.transform()
+        raster_sql = self.transform()
+        self.load(raster_sql)
+        logging.info('ETL complete: %s' % self.key)
 
     def extract(self):
         try:
             logging.info('Starting download')
-            s3.download_file(self.bucket, self.key, self.filename)
+            filename = os.path.join(self.tmpdir, 'gfs.grib')
+            s3.download_file(self.bucket, self.key, filename)
             logging.info('Download successful')
         except ClientError as e:
             logging.error("Unable to download: %s" % e)
@@ -62,40 +71,95 @@ class GFSSource():
 
     def transform(self):
         bands = self._get_raster_info()
-        raster_filename = self._translate_raster(bands)
-        raster_filename = self._reproject_raster(raster_filename)
+        translated_raster_filename = self._translate_raster(bands)
+        raster_filename = self._reproject_raster(translated_raster_filename)
+        return self._generate_raster_sql(raster_filename)
 
+    def load(self, raster_sql):
+        logging.info('Loading raster into db')
+        try:
+            connection = psycopg2.connect(**DB_PARAMS)
+            cursor = connection.cursor()
+            cursor.execute(raster_sql)
+            connection.commit()
+            logging.info('Loaded raster into db')
+        except Exception as e:
+            logging.exception('Error loading raster into db')
+            if connection:
+                connection.rollback()
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
 
     def _get_raster_info(self):
         logging.info('Getting raster info')
         # https://gdal.org/programs/gdalinfo.html
         info = gdal.Info(self.filename, format='json')
-        bands = list(filter(make_band_filter(SCALAR_BANDS), info['bands']))
+        bands = list(filter(band_filter, info['bands']))
         if len(bands) != len(SCALAR_BANDS):
             logging.warn('Missing raster bands')
 
-        logging.info('Found bands: %s' %
+        logging.info('Raster info: bands=%s' %
                      [b['metadata']['']['GRIB_ELEMENT'] for b in bands])
         return bands
 
     def _translate_raster(self, bands):
         logging.info('Translating raster')
-        new_filename = os.path.join(self.tmpdir, f'{self.filename}.tif')
-
+        new_filename = os.path.join(self.tmpdir, 'gfs.tif')
+        options = ' '.join([
+            '-of Gtiff',                        # output GeoTIFF
+            '-ot Float32',                      # convert to 32 bit float
+            '-projwin -180 85.06 180 -85.06',   # clip to mercator projection
+                                                # select output bands
+            ' '.join([f'-b {band["band"]}' for band in bands])
+        ])
         # https://gdal.org/programs/gdal_translate.html
-        # select+convert bands to float32, clip to EPSG:3857 bounds
-        band_opts = ' '.join([f'-b {band["band"]}' for band in bands])
-        options = f'-of Gtiff -ot Float32 -projwin -180 85.06 180 -85.06 {band_opts}'
         gdal.Translate(new_filename, self.filename, options=options)
         logging.info('Translation successful')
         return new_filename
 
     def _reproject_raster(self, raster_filename):
         logging.info('Reprojecting raster')
-        new_filename = os.path.join(self.tmpdir, f'{self.filename}.3857.tif')
-        gdal.Warp(new_filename, raster_filename, options='-t_srs EPSG:3857')
+        options = ' '.join([
+            '-t_srs EPSG:3857',     # set target spatial reference
+                                    # set georeferenced extents of output file
+            '-te -20037508.34 -20037508.34 20037508.34 20037508.34',
+            '-r cubicspline',       # resample method
+            '-ts 1800 1800'         # set pixel height and width
+        ])
+        # https://gdal.org/programs/gdalwarp.html
+        new_filename = os.path.join(self.tmpdir, self.raster_key)
+        gdal.Warp(new_filename, raster_filename, options=options)
         logging.info('Reprojection successful')
         return new_filename
+ 
+    def _generate_raster_sql(self, raster_filename):
+        logging.info('Generating raster SQL')
+        
+        cmd = [
+            'raster2pgsql',     # https://postgis.net/docs/using_raster_dataman.html#RT_Raster_Loader
+            '-s', '3857',       # use srid 3857
+            '-I',               # create spatial index
+            '-C',               # use standard raster contraints
+            '-F',               # include filename as column, used to index forecast hour
+            '-n raster_key'     # name the filename column
+            '-t', 'auto',       # cut raster into appropriately sized tile
+            '-a',               # append data to table
+            raster_filename,    # input raster file
+            RASTER_TABLE,       # destination table name
+        ]
+        try:
+            result = subprocess.run(cmd,
+                                    check=True,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            logging.exception('Unable to generate raster SQL: %s' % e)
+
+        logging.info('Generated raster SQL')
+        return result.stdout
 
 
 def parse_object_key(object_key):
@@ -110,7 +174,7 @@ def parse_object_key(object_key):
     year = YYYYMMDD[:4]
     month = YYYYMMDD[4:6]
     day = YYYYMMDD[6:8]
-    
+
     return {
         'year': year,
         'month': month,

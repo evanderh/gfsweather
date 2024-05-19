@@ -1,9 +1,7 @@
 **/assets/**
-server/venv
-server/data
-etl/venv
-etl/data
-etl/debug.log
+**/venv
+server/src/etl/data
+**/__pycache__/**
 
 # Logs
 logs

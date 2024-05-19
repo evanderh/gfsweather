@@ -1,11 +1,13 @@
 services:
 
   server:
-    build: .
+    build: server
     ports:
       - "8000:8000"
     volumes:
-      - ./src:/app/src
+      - ./server:/app
+    depends_on:
+      - db
 
   db:
     container_name: postgis
@@ -15,7 +17,6 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=postgres
       - POSTGIS_GDAL_ENABLED_DRIVERS=ENABLE_ALL
-      - POSTGIS_ENABLE_OUTDB_RASTERS=1
     ports:
       - "5432:5432"
     volumes:
