@@ -29,5 +29,10 @@ services:
     volumes:
       - ./tileserver:/data
 
+  # etl:
+  #   build: etl
+  #   depends_on:
+  #     - db
+
 volumes:
   postgres_data:

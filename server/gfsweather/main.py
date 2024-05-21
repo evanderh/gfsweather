@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 
-from fastapi.responses import FileResponse
-from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import (
-    AsyncSession
-)
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 import uvicorn
 from fastapi import Depends, FastAPI, Response
@@ -16,11 +13,11 @@ app = FastAPI()
     "/tiles/{z}/{x}/{y}.png",
     responses = { 200: { "content": {"image/png": {}} } },
 )
-async def tiles(
+def tiles(
     z: int,
     x: int,
     y: int,
-    session: AsyncSession = Depends(get_session)
+    session: Session = Depends(get_session)
 ):
     stmt = text(f'''
 SELECT
@@ -64,7 +61,7 @@ FROM (
     )
 )
     ''')
-    result = await session.scalar(stmt)
+    result = session.scalar(stmt)
     return Response(content=result, media_type='image/png')
 
 if __name__ == '__main__':

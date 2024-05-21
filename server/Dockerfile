@@ -1,4 +1,4 @@
-FROM python:3.11-bookworm
+FROM python:3.10-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ./ /app/
 
 EXPOSE 8000
-CMD [ "./src/main.py" ]
+CMD [ "./gfsweather/main.py" ]
