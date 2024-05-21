@@ -45,6 +45,7 @@ class GFSSource():
             metadata['cycle_datetime'],
             metadata['forecast_hour']
         )
+        self.forecast_limit = 4
     
     def __enter__(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -55,6 +56,11 @@ class GFSSource():
         shutil.rmtree(self.tmpdir)
 
     def etl(self):
+        forecast_hour = int(self.metadata['forecast_hour'])
+        if (forecast_hour > self.forecast_limit):
+            logging.info('Ignoring forecast_hour=%s, limit=%s' % (forecast_hour, self.forecast_limit))
+            return
+
         logging.info('Starting ETL: %s' % self.key)
         self.extract()
         raster_sql = self.transform()
@@ -75,53 +81,6 @@ class GFSSource():
         self._translate_raster(bands)
         self._reproject_raster()
         return self._generate_raster_sql()
-
-    def load(self, raster_sql):
-        logging.info('Loading raster into db')
-        try:
-            conn = psycopg2.connect(DATABASE_URL)
-            with conn:
-                with conn.cursor() as curs:
-                    cycle_id = self.load_forecast_cycle(curs)
-                    self.load_cycle_hour(curs, cycle_id)
-                    curs.execute(raster_sql)
-        except Exception as e:
-            logging.exception('Error loading raster into db %s' % e)
-            raise
-        finally:
-            if conn:
-                conn.close()
-
-        logging.info('Loaded raster into db')
-
-    def load_forecast_cycle(self, cursor):
-        query = """
-        WITH upsert AS (
-            INSERT INTO forecast_cycles (datetime)
-            VALUES (%(datetime)s)
-            ON CONFLICT (datetime) DO NOTHING
-            RETURNING id
-        )
-        SELECT * FROM upsert
-        UNION 
-            SELECT id FROM forecast_cycles 
-            WHERE datetime=%(datetime)s
-        """
-        cursor.execute(query, { 'datetime': self.metadata['cycle_datetime'] })
-        return cursor.fetchone()[0]
-
-    
-    def load_cycle_hour(self, cursor, cycle_id):
-        query = """
-        INSERT INTO cycle_hours (key, hour, cycle_id)
-        VALUES (%(key)s, %(hour)s, %(cycle_id)s)
-        """
-        cursor.execute(query, {
-            'key': self.cycle_hour_key,
-            'hour': int(self.metadata['forecast_hour']),
-            'cycle_id': cycle_id
-        })
-
 
     def _get_raster_info(self):
         logging.info('Getting raster info')
@@ -171,7 +130,6 @@ class GFSSource():
         cmd = [
             'raster2pgsql',         # https://postgis.net/docs/using_raster_dataman.html#RT_Raster_Loader
             '-s', '3857',           # use srid 3857
-            '-I',                   # create spatial index
             '-C',                   # use standard raster contraints
             '-F',                   # include filename as column, used to index forecast hour
             '-n', 'cycle_hour_key', # name the filename column
@@ -190,6 +148,94 @@ class GFSSource():
         except subprocess.CalledProcessError as e:
             logging.exception('Unable to generate raster SQL: %s' % e)
             raise
+
+    def load(self, raster_sql):
+        logging.info('Loading raster into db')
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            with conn:
+                with conn.cursor() as curs:
+                    cycle_id = self._load_forecast_cycle(curs)
+                    cycle_hour_key = self._load_cycle_hour(curs, cycle_id)
+                    if cycle_hour_key:
+                        curs.execute(raster_sql)
+                    self._clean(curs, cycle_id)
+        except Exception as e:
+            logging.exception('Error loading raster into db %s' % e)
+            raise
+        finally:
+            if conn:
+                conn.close()
+
+        logging.info('Loaded raster into db')
+
+    def _clean(self, cursor, cycle_id):
+        hours = self._get_all_cycle_hours(cursor, cycle_id)
+        logging.info('cycle_id=%s has hours=%s' % (cycle_id, hours))
+        logging.info(set(range(self.forecast_limit + 1)))
+        if set(hours) == set(range(self.forecast_limit + 1)):
+            deleted_cycle_ids = self._delete_previous_cycles(cursor, cycle_id)
+            logging.info('deleted cycle_id=%s' % deleted_cycle_ids)
+            
+    def _get_all_cycle_hours(self, cursor, cycle_id):
+        query = """
+        SELECT hour FROM cycle_hours
+        WHERE cycle_id=%(cycle_id)s
+        """
+        cursor.execute(query, {
+            'cycle_id': cycle_id
+        })
+        result = cursor.fetchall()
+        return [r[0] for r in result]
+    
+    def _delete_previous_cycles(self, cursor, cycle_id):
+        query = """
+        DELETE FROM forecast_cycles
+        WHERE datetime < (
+            SELECT datetime FROM forecast_cycles
+            WHERE id=%(cycle_id)s
+        )
+        RETURNING id
+        """
+        cursor.execute(query, { 'cycle_id': cycle_id })
+        result = cursor.fetchall()
+        return [r[0] for r in result]
+
+
+
+
+    def _load_forecast_cycle(self, cursor):
+        query = """
+        WITH upsert AS (
+            INSERT INTO forecast_cycles (datetime)
+            VALUES (%(datetime)s)
+            ON CONFLICT (datetime) DO NOTHING
+            RETURNING id
+        )
+        SELECT * FROM upsert
+        UNION 
+            SELECT id FROM forecast_cycles 
+            WHERE datetime=%(datetime)s
+        """
+        cursor.execute(query, { 'datetime': self.metadata['cycle_datetime'] })
+        result = cursor.fetchone()
+        return result[0] if result else None
+    
+    def _load_cycle_hour(self, cursor, cycle_id):
+        query = """
+        INSERT INTO cycle_hours (key, hour, cycle_id)
+        VALUES (%(key)s, %(hour)s, %(cycle_id)s)
+        ON CONFLICT (key) DO NOTHING
+        RETURNING key
+        """
+        cursor.execute(query, {
+            'key': self.cycle_hour_key,
+            'hour': int(self.metadata['forecast_hour']),
+            'cycle_id': cycle_id
+        })
+        result = cursor.fetchone()
+        return result[0] if result else None
+
 
 def parse_object_key(object_key):
     pattern = r'gfs\.(\d{8})/(\d{2})/atmos/gfs\.t(\d{2})z\.pgrb2\.0p25\.f(\d{3})$'
