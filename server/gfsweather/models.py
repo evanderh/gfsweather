@@ -1,4 +1,4 @@
-from sqlalchemy import TEXT, Column, ForeignKey, Integer, DateTime
+from sqlalchemy import TEXT, Column, ForeignKey, Integer, DateTime, Boolean
 from sqlalchemy.orm import relationship, mapped_column
 from geoalchemy2.types import Raster as GeoRaster
 from sqlalchemy.ext.declarative import declarative_base
@@ -33,5 +33,5 @@ class ForecastCycle(Base):
 
     id = Column(Integer, primary_key=True)
     datetime = Column(DateTime, nullable=False, unique=True)
-
+    is_complete = Column(Boolean, nullable=False, default=False)
     cycle_hours = relationship('CycleHour', back_populates='forecast_cycle', cascade='all, delete-orphan')

@@ -13,14 +13,15 @@ from logging.handlers import RotatingFileHandler
 
 from osgeo import gdal
 import boto3
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore import exceptions, UNSIGNED
+from botocore.config import Config
 import psycopg2
 
 DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/postgres'
 QUEUE_NAME = 'gfsweather'
 RASTER_TABLE = 'public.rasters'
 
-s3 = boto3.client('s3')
+s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
 sqs = boto3.client('sqs')
 
 SCALAR_BANDS = [
@@ -45,7 +46,7 @@ class GFSSource():
             metadata['cycle_datetime'],
             metadata['forecast_hour']
         )
-        self.forecast_limit = 4
+        self.forecast_limit = 24
     
     def __enter__(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -72,7 +73,7 @@ class GFSSource():
             logging.info('Starting download')
             s3.download_file(self.bucket, self.key, self.filename)
             logging.info('Download successful')
-        except ClientError as e:
+        except exceptions.ClientError as e:
             logging.error("Unable to download: %s" % e)
             raise
 
@@ -172,8 +173,8 @@ class GFSSource():
     def _clean(self, cursor, cycle_id):
         hours = self._get_all_cycle_hours(cursor, cycle_id)
         logging.info('cycle_id=%s has hours=%s' % (cycle_id, hours))
-        logging.info(set(range(self.forecast_limit + 1)))
         if set(hours) == set(range(self.forecast_limit + 1)):
+            self._set_forecast_cycle_is_complete(cursor, cycle_id)
             deleted_cycle_ids = self._delete_previous_cycles(cursor, cycle_id)
             logging.info('deleted cycle_id=%s' % deleted_cycle_ids)
             
@@ -187,6 +188,15 @@ class GFSSource():
         })
         result = cursor.fetchall()
         return [r[0] for r in result]
+
+    def _set_forecast_cycle_is_complete(self, cursor, cycle_id):
+        query = """
+        UPDATE forecast_cycles SET is_complete = true
+        WHERE id=%(cycle_id)s
+        """
+        cursor.execute(query, {
+            'cycle_id': cycle_id
+        })
     
     def _delete_previous_cycles(self, cursor, cycle_id):
         query = """
@@ -200,9 +210,6 @@ class GFSSource():
         cursor.execute(query, { 'cycle_id': cycle_id })
         result = cursor.fetchall()
         return [r[0] for r in result]
-
-
-
 
     def _load_forecast_cycle(self, cursor):
         query = """
@@ -275,10 +282,11 @@ def poll():
     queue_url = sqs.get_queue_url(QueueName=QUEUE_NAME)['QueueUrl']
 
     while True:
+        logging.info('Polling...')
         # get messages from queue
         response = sqs.receive_message(
             QueueUrl=queue_url,
-            MaxNumberOfMessages=1,
+            MaxNumberOfMessages=10,
             WaitTimeSeconds=20
         )
         if 'Messages' in response:
