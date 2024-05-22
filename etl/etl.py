@@ -214,8 +214,8 @@ class GFSSource():
     def _load_forecast_cycle(self, cursor):
         query = """
         WITH upsert AS (
-            INSERT INTO forecast_cycles (datetime)
-            VALUES (%(datetime)s)
+            INSERT INTO forecast_cycles (datetime, is_complete)
+            VALUES (%(datetime)s, false)
             ON CONFLICT (datetime) DO NOTHING
             RETURNING id
         )
