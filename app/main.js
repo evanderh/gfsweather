@@ -26,12 +26,14 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
                 playerOptions: {
                     transitionTime: 2000,
                 },
-                // timeZones: ["Local"],
+                timeZones: ["Local"],
+                playButton: false,
+                speedSlider: false,
             },
             timeDimension: true,
             timeDimensionOptions: {
                 timeInterval: `${startDatetime}Z/PT${hourLimit}H`,
-                period: "PT1H"
+                period: "PT1H",
             }
         });
 
@@ -55,15 +57,8 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             baseURL: config.S3_BASE_URL,
             velocityLayerOptions: {
                 velocityScale: 0.01,
+                colorScale: ['#888'],
             }
         });
         testVelocityRadarLayer.addTo(map);
-
-        // L.velocityLayer({
-        //     displayValues: false,
-        //     velocityScale: 0.01,
-        //     colorScale: ['#555'],
-        //     zIndex: 3,
-        //     data: windData,
-        // }).addTo(map);
     });
