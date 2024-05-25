@@ -2,8 +2,10 @@
 
 import uvicorn
 from fastapi import Depends, FastAPI, Response
-from sqlalchemy import select, text
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select, text, func
 from sqlalchemy.orm import Session
+from datetime import datetime
 from geoalchemy2.functions import (
     ST_AsPNG,
     ST_Resize,
@@ -22,24 +24,53 @@ from models import Raster, CycleHour, ForecastCycle
 
 app = FastAPI()
 
+# Configure CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        'http://localhost:5173',
+        'http://localhost:8000'
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
+
+@app.get("/forecast_cycle")
+def cycle_datetime(session: Session = Depends(get_session)):
+    start_datetime, hour_limit = session.execute(
+        select(ForecastCycle.datetime, func.max(CycleHour.hour))
+        .join(ForecastCycle, CycleHour.cycle_id == ForecastCycle.id)
+        .where(ForecastCycle.is_complete == True)
+        .group_by(ForecastCycle.datetime)
+    ).first()
+    return {
+        'startDatetime': start_datetime,
+        'hourLimit': hour_limit
+    }
+
 @app.get(
-    "/tiles/{z}/{x}/{y}.png",
+    "/tiles/{d}/{z}/{x}/{y}.png",
     responses = { 200: { "content": {"image/png": {}} } },
 )
 def tiles(
-    z: int, x: int, y: int,
+    d: str, z: int, x: int, y: int,
     session: Session = Depends(get_session)
 ):
-    tile_margin = 22500
-    hour = 12
+    dt = datetime.fromisoformat(d)
+    hours_from_start = func.extract('epoch', func.age(dt, ForecastCycle.datetime)) / 3600
 
     cycle_hour_key_subquery = (
         select(CycleHour.key)
         .join(ForecastCycle, CycleHour.cycle_id == ForecastCycle.id)
-        .where(ForecastCycle.is_complete == True, CycleHour.hour == hour)
+        .where(
+            ForecastCycle.is_complete == True,
+            CycleHour.hour == hours_from_start
+        )
         .scalar_subquery()
     )
 
+    tile_margin = 22500
     selected_rasters_subquery = (
         select(
             ST_Clip(

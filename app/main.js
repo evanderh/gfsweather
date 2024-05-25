@@ -1,19 +1,69 @@
 import './style.css'
 import 'leaflet/dist/leaflet.css';
-import "leaflet-velocity/dist/leaflet-velocity.css";
+import 'leaflet-velocity/dist/leaflet-velocity.css';
+import 'leaflet-timedimension/dist/leaflet.timedimension.control.css';
 
 import L from 'leaflet';
 import 'leaflet-velocity/dist/leaflet-velocity.js';
-import wind from './assets/wind.json'
+import 'leaflet-timedimension/dist/leaflet.timedimension.src.withlog.js';
+import './TimeLayer.js';
+import './TimeVelocityLayer.js';
+import { config } from './config.js';
 
-var map = L.map('map').setView([39, -98], 4);
+fetch(`${config.SERVER_URL}/forecast_cycle`)
+    .then(response => response.json())
+    .then(data => {
+        let { startDatetime, hourLimit } = data;
+        let map = L.map('map', {
+            center: [39, -98],
+            zoom: 5,
+            minZoom: 3,
+            maxZoom: 12,
+            timeDimensionControl: true,
+            timeDimensionControlOptions: {
+                position: 'bottomleft',
+                maxSpeed: 2,
+                playerOptions: {
+                    transitionTime: 2000,
+                },
+                // timeZones: ["Local"],
+            },
+            timeDimension: true,
+            timeDimensionOptions: {
+                timeInterval: `${startDatetime}Z/PT${hourLimit}H`,
+                period: "PT1H"
+            }
+        });
 
-L.tileLayer('http://localhost:8000/tiles/{z}/{x}/{y}.png').addTo(map);
-L.tileLayer('http://localhost:8080/styles/osm-bright/256/{z}/{x}/{y}.png').addTo(map);
-L.velocityLayer({
-    displayValues: false,
-    velocityScale: 0.01,
-    opacity: 0.8,
-    colorScale: ['#666'],
-    data: wind,
-}).addTo(map);
+        L.timeDimension.timeLayer = function(layer, options) {
+            return new L.TimeDimension.TimeLayer(layer, options);
+        };
+
+        L.timeDimension.timeLayer(
+            L.tileLayer(`${config.SERVER_URL}/tiles/{d}/{z}/{x}/{y}.png`), {
+            zIndex: 1,
+        }).addTo(map);
+
+        L.tileLayer('http://localhost:8080/styles/osm-bright/256/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            zIndex: 2,
+        }).addTo(map);
+
+        L.timeDimension
+
+        var testVelocityRadarLayer = L.timeDimension.layer.velocityLayer({
+            baseURL: config.S3_BASE_URL,
+            velocityLayerOptions: {
+                velocityScale: 0.01,
+            }
+        });
+        testVelocityRadarLayer.addTo(map);
+
+        // L.velocityLayer({
+        //     displayValues: false,
+        //     velocityScale: 0.01,
+        //     colorScale: ['#555'],
+        //     zIndex: 3,
+        //     data: windData,
+        // }).addTo(map);
+    });

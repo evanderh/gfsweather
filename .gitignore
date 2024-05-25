@@ -1,3 +1,5 @@
+app/config.js
+
 **/assets/**
 **/venv
 server/src/etl/data
