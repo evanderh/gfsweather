@@ -1,10 +1,8 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from dotenv import load_dotenv
 
-load_dotenv()
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = 'postgresql://postgres:postgres@postgis:5432/postgres'
 
 engine = create_engine(DATABASE_URL)
 session_maker = sessionmaker(bind=engine)

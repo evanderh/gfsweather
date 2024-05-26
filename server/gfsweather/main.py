@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
+import io
 import uvicorn
 from fastapi import Depends, FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, text, func
 from sqlalchemy.orm import Session
 from datetime import datetime
+from PIL import Image, ImageDraw
 from geoalchemy2.functions import (
     ST_AsPNG,
     ST_Resize,
@@ -17,7 +19,8 @@ from geoalchemy2.functions import (
     ST_YMax,
     ST_TileEnvelope,
     ST_Expand,
-    ST_Intersects
+    ST_Intersects,
+    ST_Band
 )
 from database import get_session
 from models import Raster, CycleHour, ForecastCycle
@@ -49,15 +52,106 @@ def cycle_datetime(session: Session = Depends(get_session)):
         'hourLimit': hour_limit
     }
 
+
 @app.get(
-    "/tiles/{d}/{z}/{x}/{y}.png",
+    "/legend.png",
+    responses = { 200: { "content": {"image/png": {}} } },
+)
+def legend():
+    color_table = temperature_color_scale
+    
+    # Define the dimensions of the legend image
+    legend_width = 100
+    legend_height = 300
+    color_bar_width = 20
+    num_colors = len(color_table)
+    segment_height = legend_height / (num_colors - 1)
+    
+    # Create a new image with a white background
+    legend = Image.new('RGB', (legend_width, legend_height), (255, 255, 255))
+    draw = ImageDraw.Draw(legend)
+
+    for i in range(legend_height):
+        # Determine which segment we're in and the local position within the segment
+        segment_index = int(i // segment_height)
+        segment_pos = (i % segment_height) / segment_height
+        
+        # Interpolate between the colors of the current segment
+        if segment_index < num_colors - 1:
+            start_color = color_table[segment_index]
+            end_color = color_table[segment_index + 1]
+            color = interpolate_color(start_color, end_color, segment_pos)
+            draw.line([(0, i), (color_bar_width, i)], fill=color)
+
+    # Add color band labels
+    for idx, entry in enumerate(color_table):
+        if (idx == 0 or idx == num_colors - 1):
+            continue
+        c = f"{int(entry[0])}°C"
+        f = f"{int(entry[0]*1.8 + 32)}°F"
+        fill = (0, 0, 0)
+        y_position = int(idx * segment_height) - 5
+        draw.text((color_bar_width + 30, y_position),
+                  c, fill=fill, anchor='rt')
+        draw.text((color_bar_width + 42, y_position),
+                  "/", fill=fill, anchor='rt')
+        draw.text((color_bar_width + 75, y_position),
+                  f, fill=fill, anchor='rt')
+ 
+    # Save the image to a BytesIO object
+    img_io = io.BytesIO()
+    legend.save(img_io, 'PNG')
+    img_io.seek(0)
+    
+    return Response(content=img_io.getvalue(), media_type='image/png') 
+
+
+temperature_color_scale = [
+    [60.0, 158, 1, 66], 
+    [40.0, 213, 62, 79], 
+    [35.0, 244, 109, 67], 
+    [30.0, 253, 174, 97], 
+    [25.0, 254, 224, 139], 
+    [20.0, 255, 255, 191], 
+    [15.0, 230, 245, 152], 
+    [10.0, 171, 221, 164], 
+    [ 5.0, 102, 194, 165], 
+    [ 0.0, 50, 136, 189], 
+    [-80.0, 94, 79, 162]
+]
+
+def make_color_map(scale):
+    def makeRow(row):
+        return ','.join([str(n) for n in row])
+    rows = [makeRow(row) for row in scale]
+    return '\n'.join(rows)
+
+
+def interpolate_color(start_color, end_color, t):
+    r = int(start_color[1] + (end_color[1] - start_color[1]) * t)
+    g = int(start_color[2] + (end_color[2] - start_color[2]) * t)
+    b = int(start_color[3] + (end_color[3] - start_color[3]) * t)
+    return (r, g, b)
+
+
+@app.get(
+    "/{layer}/{date}/{z}/{x}/{y}.png",
     responses = { 200: { "content": {"image/png": {}} } },
 )
 def tiles(
-    d: str, z: int, x: int, y: int,
+    layer: str, date: str, z: int, x: int, y: int,
     session: Session = Depends(get_session)
 ):
-    dt = datetime.fromisoformat(d)
+    colormap = None
+    band = None
+    if layer == 'temperature':
+        colormap = make_color_map(temperature_color_scale)
+        band = 1
+    elif layer == 'cloudcover':
+        colormap = 'bluered'
+        band = 3
+
+    dt = datetime.fromisoformat(date)
     hours_from_start = func.extract('epoch', func.age(dt, ForecastCycle.datetime)) / 3600
 
     cycle_hour_key_subquery = (
@@ -74,7 +168,7 @@ def tiles(
     selected_rasters_subquery = (
         select(
             ST_Clip(
-                Raster.rast,
+                ST_Band(Raster.rast, band),
                 ST_Expand(ST_TileEnvelope(z, x, y), tile_margin)
             ).label('rasters')
         ).where(
@@ -106,17 +200,7 @@ def tiles(
                     ST_Union(
                         ST_ColorMap(
                             resampled_rasters_subquery.c.rasters,
-                            text("'60.0 158,1,66\n"
-                                "40.0 213,62,79\n"
-                                "35.0 244,109,67\n"
-                                "30.0 253,174,97\n"
-                                "25.0 254,224,139\n"
-                                "20.0 255,255,191\n"
-                                "15.0 230,245,152\n"
-                                "10.0 171,221,164\n"
-                                "5.0 102,194,165\n"
-                                "0.0 50,136,189\n"
-                                "-80.0 94,79,162'")
+                            text(f"'{colormap}'")
                         )
                     ),
                     256, 256, 'CubicSpline'

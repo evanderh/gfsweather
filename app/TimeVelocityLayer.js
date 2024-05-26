@@ -1,4 +1,4 @@
-L.TimeDimension.Layer.VelocityLayer = L.TimeDimension.Layer.extend({
+L.TimeDimension.VelocityLayer = L.TimeDimension.Layer.extend({
 
     initialize: function(options) {
         var layer = new L.VelocityLayer(
@@ -53,7 +53,6 @@ L.TimeDimension.Layer.VelocityLayer = L.TimeDimension.Layer.extend({
             }
             delete this._currentTimeData;
             this._currentTimeData = data;
-            console.log(new Date(time).toISOString())
             this._currentLoadedTime = time;
             if (this._timeDimension && time == this._timeDimension.getCurrentTime() && !this._timeDimension.isLoading()) {
                 this._update();
@@ -69,13 +68,12 @@ L.TimeDimension.Layer.VelocityLayer = L.TimeDimension.Layer.extend({
 
     _constructQuery: function(time) {
         var datetime = new Date(time);
-        var timeParams = `/${datetime.toISOString().slice(0, 13)}.json`;
-        var url = this._baseURL + timeParams;
-        return url;
+        var path = `/${datetime.toISOString().slice(0, 13)}.json`;
+        return this._baseURL + path;
     },
 
 });
 
-L.timeDimension.layer.velocityLayer = function(options) {
-    return new L.TimeDimension.Layer.VelocityLayer(options);
+L.timeDimension.velocityLayer = function(options) {
+    return new L.TimeDimension.VelocityLayer(options);
 };

@@ -19,8 +19,20 @@ import psycopg2
 DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/postgres'
 QUEUE_NAME = 'gfsweather'
 BUCKET_NAME = 'gfs-velocity'
-RASTER_TABLE = 'public.rasters'
-FORECAST_LIMIT = 48
+RASTER_TABLE = 'gfs.rasters'
+FORECAST_LIMIT = 5
+RASTER_BANDS = [
+    {
+        'element': 'TMP',
+        'layer': '2-HTGL',
+    }, {
+        'element': 'PRATE',
+        'layer': '0-SFC',
+    }, {
+        'element': 'TCDC',
+        'layer': '0-EATM',
+    }
+]
 
 s3 = boto3.client('s3')
 sqs = boto3.client('sqs')
@@ -69,8 +81,7 @@ class GFSSource():
     def transform_raster(self):
         logging.info('Filtering raster')
         tmp_filename = os.path.join(self.tmpdir, 'tmp_raster.tif')
-        bands = [ ('TMP', '2-HTGL') ]
-        filter_grib(tmp_filename, self.filename, bands)
+        filter_grib(tmp_filename, self.filename, self.forecast_hour, RASTER_BANDS)
 
         logging.info('Reprojecting raster')
         output_filename = os.path.join(self.tmpdir, self.cycle_key)
@@ -91,9 +102,12 @@ class GFSSource():
 
     def transform_velocity_element(self, grib_element):
         logging.info('Filtering %s' % grib_element)
-        band = [ (grib_element, '10-HTGL') ]
+        band = [{
+            'element': grib_element,
+            'layer': '10-HTGL',
+        }]
         tmp_filename = os.path.join(self.tmpdir, 'tmp_velocity.tif')
-        filter_grib(tmp_filename, self.filename, band)
+        filter_grib(tmp_filename, self.filename, self.forecast_hour, band)
 
         logging.info('Downsampling %s' % grib_element)
         downsample_filename = os.path.join(self.tmpdir, 'downsampled.tif')
@@ -146,22 +160,27 @@ class GFSSource():
             logging.exception('Unable to upload velocity to S3: %s' % e)
             raise
 
-def get_band_info(filename, filter_bands):
+def get_band_info(filename, forecast_hour, filter_bands):
     # https://gdal.org/programs/gdalinfo.html
     info = gdal.Info(filename, format='json')
-    def band_filter(band):
-        metadata = band['metadata']['']
-        for (element, short_name) in filter_bands:
-            if (element == metadata['GRIB_ELEMENT'] and
-                short_name == metadata['GRIB_SHORT_NAME']):
-                return True
-        return False
-    return list(filter(band_filter, info['bands']))
+    forecast_seconds = int(forecast_hour) * 3600
 
-def filter_grib(dest_file, src_file, filter_bands):
-    bands = get_band_info(src_file, filter_bands)
+    result = []
+    for filter_band in filter_bands:
+        def find_band(band):
+            metadata = band['metadata']['']
+            return (filter_band['element'] == metadata['GRIB_ELEMENT'] and
+                    filter_band['layer'] == metadata['GRIB_SHORT_NAME'] )
+
+        item = next(filter(find_band, info['bands']))
+        result.append(item)
+
+    return result
+
+def filter_grib(dest_file, src_file, forecast_hour, filter_bands):
+    bands = get_band_info(src_file, forecast_hour, filter_bands)
     logging.info('Filter found bands=%s' %
-                    [b['metadata']['']['GRIB_ELEMENT'] for b in bands])
+                 [b['metadata']['']['GRIB_ELEMENT'] for b in bands])
 
     options = ' '.join([
         '-of Gtiff',                        # output GeoTIFF
@@ -170,7 +189,6 @@ def filter_grib(dest_file, src_file, filter_bands):
                                             # select output bands
         ' '.join([f'-b {band["band"]}' for band in bands])
     ])
-    logging.info(options)
     # https://gdal.org/programs/gdal_translate.html
     gdal.Translate(dest_file, src_file, options=options)
 
@@ -187,7 +205,6 @@ def warp_grib(dest_file, src_file, xres, yres, reproject=True):
         ])
 
     options = ' '.join(options)
-    logging.info(options)
     # https://gdal.org/programs/gdalwarp.html
     gdal.Warp(dest_file, src_file, options=options)
 
@@ -196,6 +213,7 @@ def generate_raster_sql(src_file):
         'raster2pgsql',         # https://postgis.net/docs/using_raster_dataman.html#RT_Raster_Loader
         '-s', '3857',           # use srid 3857
         '-C',                   # use standard raster contraints
+        '-k',
         '-F',                   # include filename as column, used to index forecast hour
         '-n', 'cycle_hour_key', # name the filename column
         '-t', 'auto',           # cut raster into appropriately sized tile
@@ -249,14 +267,14 @@ def generate_velocity_metadata(src_file):
 def insert_forecast_cycle(cursor, datetime):
     query = """
     WITH upsert AS (
-        INSERT INTO forecast_cycles (datetime, is_complete)
+        INSERT INTO gfs.forecast_cycles (datetime, is_complete)
         VALUES (%(datetime)s, false)
         ON CONFLICT (datetime) DO NOTHING
         RETURNING id
     )
     SELECT * FROM upsert
     UNION 
-        SELECT id FROM forecast_cycles 
+        SELECT id FROM gfs.forecast_cycles 
         WHERE datetime=%(datetime)s
     """
     cursor.execute(query, { 'datetime': datetime })
@@ -265,7 +283,7 @@ def insert_forecast_cycle(cursor, datetime):
 
 def insert_cycle_hour(cursor, key, hour, cycle_id):
     query = """
-    INSERT INTO cycle_hours (key, hour, cycle_id)
+    INSERT INTO gfs.cycle_hours (key, hour, cycle_id)
     VALUES (%(key)s, %(hour)s, %(cycle_id)s)
     ON CONFLICT (key) DO NOTHING
     """
@@ -277,7 +295,7 @@ def insert_cycle_hour(cursor, key, hour, cycle_id):
 
 def select_all_cycle_hours(cursor, cycle_id):
     query = """
-    SELECT hour FROM cycle_hours
+    SELECT hour FROM gfs.cycle_hours
     WHERE cycle_id=%(cycle_id)s
     """
     cursor.execute(query, {
@@ -288,7 +306,7 @@ def select_all_cycle_hours(cursor, cycle_id):
 
 def update_forecast_cycle(cursor, cycle_id):
     query = """
-    UPDATE forecast_cycles SET is_complete = true
+    UPDATE gfs.forecast_cycles SET is_complete = true
     WHERE id=%(cycle_id)s
     """
     cursor.execute(query, {
@@ -297,9 +315,9 @@ def update_forecast_cycle(cursor, cycle_id):
 
 def delete_previous_cycles(cursor, cycle_id):
     query = """
-    DELETE FROM forecast_cycles
+    DELETE FROM gfs.forecast_cycles
     WHERE datetime < (
-        SELECT datetime FROM forecast_cycles
+        SELECT datetime FROM gfs.forecast_cycles
         WHERE id=%(cycle_id)s
     )
     RETURNING id

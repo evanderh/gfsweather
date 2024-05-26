@@ -19,6 +19,7 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             zoom: 5,
             minZoom: 3,
             maxZoom: 12,
+            maxBounds: [[-85, -360], [85, 360]],
             timeDimensionControl: true,
             timeDimensionControlOptions: {
                 position: 'bottomleft',
@@ -41,24 +42,45 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             return new L.TimeDimension.TimeLayer(layer, options);
         };
 
-        L.timeDimension.timeLayer(
-            L.tileLayer(`${config.SERVER_URL}/tiles/{d}/{z}/{x}/{y}.png`), {
+        var temperatureLayer = L.timeDimension.timeLayer(
+            L.tileLayer(`${config.SERVER_URL}/temperature/{d}/{z}/{x}/{y}.png`), {
             zIndex: 1,
         }).addTo(map);
 
+        var cloudLayer = L.timeDimension.timeLayer(
+            L.tileLayer(`${config.SERVER_URL}/cloudcover/{d}/{z}/{x}/{y}.png`), {
+            zIndex: 2,
+        })
+
         L.tileLayer('http://localhost:8080/styles/osm-bright/256/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            zIndex: 2,
+            zIndex: 3,
         }).addTo(map);
 
-        L.timeDimension
-
-        var testVelocityRadarLayer = L.timeDimension.layer.velocityLayer({
+        L.timeDimension.velocityLayer({
             baseURL: config.S3_BASE_URL,
             velocityLayerOptions: {
                 velocityScale: 0.01,
                 colorScale: ['#888'],
             }
+        }).addTo(map);
+
+        var testLegend = L.control({
+            position: 'topright'
         });
-        testVelocityRadarLayer.addTo(map);
+        testLegend.onAdd = function(map) {
+            var src = `${config.SERVER_URL}/legend.png`;
+            var div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML +=
+                '<img src="' + src + '" alt="legend">';
+            return div;
+        };
+        testLegend.addTo(map);
+
+
+        var layersControl = L.control.layers({
+            'temperature': temperatureLayer,
+            'cloudcover': cloudLayer 
+        }, []);
+        layersControl.addTo(map);
     });
