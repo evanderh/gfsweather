@@ -20,7 +20,7 @@ DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/postgres'
 QUEUE_NAME = 'gfsweather'
 BUCKET_NAME = 'gfs-velocity'
 RASTER_TABLE = 'gfs.rasters'
-FORECAST_LIMIT = 5
+FORECAST_LIMIT = 24
 RASTER_BANDS = [
     {
         'element': 'TMP',
@@ -31,6 +31,12 @@ RASTER_BANDS = [
     }, {
         'element': 'TCDC',
         'layer': '0-EATM',
+    }, {
+        'element': 'PRES',
+        'layer': '0-SFC',
+    }, {
+        'element': 'RH',
+        'layer': '2-HTGL',
     }
 ]
 

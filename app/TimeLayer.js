@@ -143,7 +143,7 @@ L.TimeDimension.TimeLayer = L.TimeDimension.Layer.extend({
         }
 
         var newLayer = this._createLayerForTime(nearestTime);
-       
+
         this._layers[time] = newLayer;
 
         newLayer.on('load', (function(layer, time) {

@@ -8,6 +8,8 @@ import 'leaflet-velocity/dist/leaflet-velocity.js';
 import 'leaflet-timedimension/dist/leaflet.timedimension.src.withlog.js';
 import './TimeLayer.js';
 import './TimeVelocityLayer.js';
+import './Legend.js';
+
 import { config } from './config.js';
 
 fetch(`${config.SERVER_URL}/forecast_cycle`)
@@ -18,8 +20,8 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             center: [39, -98],
             zoom: 5,
             minZoom: 3,
-            maxZoom: 12,
-            maxBounds: [[-85, -360], [85, 360]],
+            maxZoom: 11,
+            maxBounds: [[-85, -720], [85, 720]],
             timeDimensionControl: true,
             timeDimensionControlOptions: {
                 position: 'bottomleft',
@@ -42,15 +44,15 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             return new L.TimeDimension.TimeLayer(layer, options);
         };
 
-        var temperatureLayer = L.timeDimension.timeLayer(
-            L.tileLayer(`${config.SERVER_URL}/temperature/{d}/{z}/{x}/{y}.png`), {
+        var tmpLayer = L.timeDimension.timeLayer(
+            L.tileLayer(`${config.SERVER_URL}/tmp/{d}/{z}/{x}/{y}.png`), {
             zIndex: 1,
         }).addTo(map);
 
-        var cloudLayer = L.timeDimension.timeLayer(
-            L.tileLayer(`${config.SERVER_URL}/cloudcover/{d}/{z}/{x}/{y}.png`), {
+        var prateLayer = L.timeDimension.timeLayer(
+            L.tileLayer(`${config.SERVER_URL}/prate/{d}/{z}/{x}/{y}.png`), {
             zIndex: 2,
-        })
+        });
 
         L.tileLayer('http://localhost:8080/styles/osm-bright/256/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -65,22 +67,14 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             }
         }).addTo(map);
 
-        var testLegend = L.control({
-            position: 'topright'
-        });
-        testLegend.onAdd = function(map) {
-            var src = `${config.SERVER_URL}/legend.png`;
-            var div = L.DomUtil.create('div', 'info legend');
-            div.innerHTML +=
-                '<img src="' + src + '" alt="legend">';
-            return div;
-        };
-        testLegend.addTo(map);
-
+        L.control.legend({
+            serverUrl: config.SERVER_URL,
+            layer: 'tmp'
+        }).addTo(map);
 
         var layersControl = L.control.layers({
-            'temperature': temperatureLayer,
-            'cloudcover': cloudLayer 
+            'tmp': tmpLayer,
+            'prate': prateLayer,
         }, []);
         layersControl.addTo(map);
     });
