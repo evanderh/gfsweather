@@ -226,7 +226,7 @@
             "source": "openmaptiles",
             "source-layer": "water",
             "layout": {
-                "visibility": "visible"
+                "visibility": "none"
             },
             "paint": {
                 "fill-color": "hsl(196,28%,74%)",
@@ -249,49 +249,16 @@
         },
         {
             "id": "Water",
-            "type": "fill",
+            "type": "line",
             "source": "openmaptiles",
             "source-layer": "water",
             "layout": {
-                "visibility": "visible"
+                "visibility": "visible",
+                "line-join": "round",
+                "line-cap": "round"
             },
             "paint": {
-                "fill-color": "hsl(187, 36%, 87%)",
-                "fill-opacity": 1,
-                "fill-antialias": true,
-                "fill-translate": {
-                    "stops": [
-                        [
-                            0,
-                            [
-                                0,
-                                2
-                            ]
-                        ],
-                        [
-                            6,
-                            [
-                                0,
-                                3
-                            ]
-                        ],
-                        [
-                            12,
-                            [
-                                0,
-                                2
-                            ]
-                        ],
-                        [
-                            14,
-                            [
-                                0,
-                                0
-                            ]
-                        ]
-                    ]
-                },
-                "fill-translate-anchor": "map"
+                "line-color": "#666"
             },
             "filter": [
                 "all",

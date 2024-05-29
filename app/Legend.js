@@ -1,3 +1,5 @@
+import { layersConfig } from "./LayersConfig";
+
 L.Control.Legend = L.Control.extend({
 
     options: {
@@ -8,12 +10,13 @@ L.Control.Legend = L.Control.extend({
         var img = L.DomUtil.create('img');
         img.id = 'leaflet-legend';
         img.style.border = '1px solid gray';
-        img.src = `${this.options.serverUrl}/${this.options.layer}/legend.png`;
+        img.src = `${this.options.serverUrl}/TMP/legend.png`;
         console.log(img.src)
 
         map.on('baselayerchange', function(ev) {
             var img = document.getElementById('leaflet-legend');
-            img.src = `${this.options.serverUrl}/${ev.name}/legend.png`
+            var layer = layersConfig[ev.name];
+            img.src = `${this.options.serverUrl}/${layer}/legend.png`
         }.bind(this))
 
         return img;

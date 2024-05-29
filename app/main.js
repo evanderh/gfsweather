@@ -4,7 +4,7 @@ import 'leaflet-velocity/dist/leaflet-velocity.css';
 import 'leaflet-timedimension/dist/leaflet.timedimension.control.css';
 
 import L from 'leaflet';
-import "@maptiler/leaflet-maptilersdk";
+import '@maptiler/leaflet-maptilersdk';
 import 'leaflet-velocity/dist/leaflet-velocity.js';
 import 'leaflet-timedimension/dist/leaflet.timedimension.src.withlog.js';
 import './TimeLayer.js';
@@ -12,14 +12,15 @@ import './TimeVelocityLayer.js';
 import './Legend.js';
 
 import { config } from './config.js';
+import { layersConfig } from './LayersConfig.js';
 
 fetch(`${config.SERVER_URL}/forecast_cycle`)
     .then(response => response.json())
     .then(data => {
         let { startDatetime, hourLimit } = data;
         let map = L.map('map', {
-            center: [39, -98],
-            zoom: 5,
+            center: [20, 0],
+            zoom: 3,
             minZoom: 3,
             maxZoom: 11,
             maxBounds: [[-85, -720], [85, 720]],
@@ -43,17 +44,11 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
 
         L.control.legend({
             serverUrl: config.SERVER_URL,
-            layer: 'tmp'
         }).addTo(map);
-
-        var prateLayer = L.timeDimension.timeLayer(
-            L.tileLayer(`${config.SERVER_URL}/prate/{d}/{z}/{x}/{y}.png`), {
-            zIndex: 2,
-        });
 
         L.tileLayer('http://localhost:8080/styles/osm-bright/256/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            zIndex: 3,
+            zIndex: 9,
         }).addTo(map);
 
         L.timeDimension.velocityLayer({
@@ -64,17 +59,14 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             }
         }).addTo(map);
 
-        var tmpLayer = L.timeDimension.timeLayer(
-            L.tileLayer(`${config.SERVER_URL}/tmp/{d}/{z}/{x}/{y}.png`), {
-        }).addTo(map);
+        var layers = {}
+        Object.entries(layersConfig).forEach(([name, layer]) => {
+            layers[name] = L.timeDimension.timeLayer(
+                L.tileLayer(`${config.SERVER_URL}/${layer}/{d}/{z}/{x}/{y}.png`)
+            );
+        })
+        layers['Temperature'].addTo(map)
 
-        var prateLayer = L.timeDimension.timeLayer(
-            L.tileLayer(`${config.SERVER_URL}/prate/{d}/{z}/{x}/{y}.png`), {
-        });
-
-        var layersControl = L.control.layers({
-            'tmp': tmpLayer,
-            'prate': prateLayer,
-        }, []);
+        var layersControl = L.control.layers(layers, []);
         layersControl.addTo(map);
     });
