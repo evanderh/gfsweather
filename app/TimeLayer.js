@@ -232,3 +232,7 @@ L.TimeDimension.TimeLayer = L.TimeDimension.Layer.extend({
         return this._availableTimes[index];
     },
 });
+
+L.timeDimension.timeLayer = function(layer, options) {
+    return new L.TimeDimension.TimeLayer(layer, options);
+};

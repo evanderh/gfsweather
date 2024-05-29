@@ -4,6 +4,7 @@ import 'leaflet-velocity/dist/leaflet-velocity.css';
 import 'leaflet-timedimension/dist/leaflet.timedimension.control.css';
 
 import L from 'leaflet';
+import "@maptiler/leaflet-maptilersdk";
 import 'leaflet-velocity/dist/leaflet-velocity.js';
 import 'leaflet-timedimension/dist/leaflet.timedimension.src.withlog.js';
 import './TimeLayer.js';
@@ -40,13 +41,9 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             }
         });
 
-        L.timeDimension.timeLayer = function(layer, options) {
-            return new L.TimeDimension.TimeLayer(layer, options);
-        };
-
-        var tmpLayer = L.timeDimension.timeLayer(
-            L.tileLayer(`${config.SERVER_URL}/tmp/{d}/{z}/{x}/{y}.png`), {
-            zIndex: 1,
+        L.control.legend({
+            serverUrl: config.SERVER_URL,
+            layer: 'tmp'
         }).addTo(map);
 
         var prateLayer = L.timeDimension.timeLayer(
@@ -67,10 +64,13 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             }
         }).addTo(map);
 
-        L.control.legend({
-            serverUrl: config.SERVER_URL,
-            layer: 'tmp'
+        var tmpLayer = L.timeDimension.timeLayer(
+            L.tileLayer(`${config.SERVER_URL}/tmp/{d}/{z}/{x}/{y}.png`), {
         }).addTo(map);
+
+        var prateLayer = L.timeDimension.timeLayer(
+            L.tileLayer(`${config.SERVER_URL}/prate/{d}/{z}/{x}/{y}.png`), {
+        });
 
         var layersControl = L.control.layers({
             'tmp': tmpLayer,
