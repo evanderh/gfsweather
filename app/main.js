@@ -4,9 +4,8 @@ import 'leaflet-velocity/dist/leaflet-velocity.css';
 import 'leaflet-timedimension/dist/leaflet.timedimension.control.css';
 
 import L from 'leaflet';
-import '@maptiler/leaflet-maptilersdk';
 import 'leaflet-velocity/dist/leaflet-velocity.js';
-import 'leaflet-timedimension/dist/leaflet.timedimension.src.withlog.js';
+import 'leaflet-timedimension/dist/leaflet.timedimension.src.js';
 import './TimeLayer.js';
 import './TimeVelocityLayer.js';
 import './Legend.js';
@@ -19,7 +18,7 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
     .then(data => {
         let { startDatetime, hourLimit } = data;
         let map = L.map('map', {
-            center: [20, 0],
+            center: [20, -10],
             zoom: 3,
             minZoom: 3,
             maxZoom: 11,
@@ -46,7 +45,7 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             serverUrl: config.SERVER_URL,
         }).addTo(map);
 
-        L.tileLayer('http://localhost:8080/styles/osm-bright/256/{z}/{x}/{y}.png', {
+        L.tileLayer(`${config.TILES_SERVER_URL}/styles/osm-bright/256/{z}/{x}/{y}.png`, {
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
             zIndex: 9,
         }).addTo(map);

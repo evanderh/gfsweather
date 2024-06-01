@@ -22,10 +22,10 @@ from fastapi import Depends, Response, APIRouter
 
 from database import get_session
 from models import Raster, CycleHour, ForecastCycle
-from layer_config import get_layer_config, layers
+from layer_config import make_color_map, layers
 
 
-router = APIRouter()
+router = APIRouter(prefix='/api')
 
 
 @router.get("/forecast_cycle")
@@ -50,7 +50,8 @@ def tiles(
     layer: str, date: str, z: int, x: int, y: int,
     session: Session = Depends(get_session)
 ):
-    band, colormap = get_layer_config(layer)
+    band = layers[layer]['band']
+    colormap = make_color_map(layers[layer]['color_scale'])
 
     dt = datetime.fromisoformat(date)
     hours_from_start = func.extract('epoch', func.age(dt, ForecastCycle.datetime)) / 3600
@@ -126,10 +127,11 @@ def interpolate_color(start_color, end_color, t):
     responses = { 200: { "content": {"image/png": {}} } },
 )
 def legend(layer: str):
+    # Get the color map
     colormap = layers[layer]['color_scale']
     
     # Define the dimensions of the legend image
-    legend_width = 100
+    legend_width = 120
     legend_height = 300
     color_bar_width = 20
     num_colors = len(colormap)
@@ -152,20 +154,10 @@ def legend(layer: str):
             draw.line([(0, i), (color_bar_width, i)], fill=color)
 
     # Add color band labels
-    for idx, entry in enumerate(colormap):
-        if (idx == 0 or idx == num_colors - 1):
-            continue
-        c = f"{int(entry[0])}°C"
-        f = f"{int(entry[0]*1.8 + 32)}°F"
-        fill = (0, 0, 0)
-        y_position = int(idx * segment_height) - 5
-        draw.text((color_bar_width + 30, y_position),
-                  c, fill=fill, anchor='rt')
-        draw.text((color_bar_width + 42, y_position),
-                  "/", fill=fill, anchor='rt')
-        draw.text((color_bar_width + 75, y_position),
-                  f, fill=fill, anchor='rt')
- 
+    legend_text = layers[layer]['legend_text']
+    legend_text(draw, colormap, segment_height)
+
+
     # Save the image to a BytesIO object
     img_io = io.BytesIO()
     legend.save(img_io, 'PNG')

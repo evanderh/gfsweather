@@ -2,8 +2,8 @@ app/config.js
 
 **/assets/**
 **/venv
-server/src/etl/data
 **/__pycache__/**
+*.mbtiles
 
 # Logs
 logs

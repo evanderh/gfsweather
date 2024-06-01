@@ -32,8 +32,8 @@ RASTER_BANDS = [
         'element': 'TCDC',
         'layer': '0-EATM',
     }, {
-        'element': 'PRES',
-        'layer': '0-SFC',
+        'element': 'PRMSL',
+        'layer': '0-MSL',
     }, {
         'element': 'RH',
         'layer': '2-HTGL',

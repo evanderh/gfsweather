@@ -2245,8 +2245,7 @@
             "maxzoom": 4,
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold Italic",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": [
                     "interpolate",
@@ -2321,8 +2320,7 @@
             "minzoom": 3,
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold Italic",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": [
                     "interpolate",
@@ -2377,8 +2375,7 @@
             "source-layer": "water_name",
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold Italic",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": [
                     "interpolate",
@@ -2419,8 +2416,7 @@
             "minzoom": 14,
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": [
                     "interpolate",
@@ -2604,8 +2600,7 @@
             "minzoom": 13,
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": [
                     "interpolate",
@@ -2725,8 +2720,7 @@
             "minzoom": 12,
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": [
                     "interpolate",
@@ -2779,8 +2773,7 @@
             "maxzoom": 16,
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": [
                     "interpolate",
@@ -2829,8 +2822,7 @@
             "maxzoom": 8,
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": [
                     "interpolate",
@@ -2901,8 +2893,7 @@
             "maxzoom": 14,
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": [
                     "interpolate",
@@ -3016,8 +3007,7 @@
             "maxzoom": 10,
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": [
                     "interpolate",
@@ -3168,8 +3158,7 @@
             "maxzoom": 2,
             "layout": {
                 "text-font": [
-                    "Metropolis Semi Bold",
-                    "Noto Sans Bold"
+                    "Open Sans Bold"
                 ],
                 "text-size": 13,
                 "text-field": "{name:en}",
