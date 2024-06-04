@@ -20,6 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    op.execute('create extension if not exists postgis')
     op.execute('create extension if not exists postgis_raster')
     op.execute('alter database postgres set postgis.gdal_enabled_drivers TO "ENABLE_ALL"')
     op.execute('create schema if not exists gfs')
