@@ -15,12 +15,20 @@ from osgeo import gdal
 import boto3
 from botocore import exceptions
 import psycopg2
+import dotenv
 
-DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/postgres'
+environment = os.getenv('ENV', 'development')
+print(environment)
+if environment == 'production':
+    dotenv.load_dotenv('.env.production.local')
+else:
+    dotenv.load_dotenv('.env.development')
+DATABASE_URI = os.getenv('DATABASE_URI')
+
 QUEUE_NAME = 'gfsweather'
 BUCKET_NAME = 'gfs-velocity'
 RASTER_TABLE = 'gfs.rasters'
-FORECAST_LIMIT = 1
+FORECAST_LIMIT = 48
 RASTER_BANDS = [
     {
         'element': 'TMP',
@@ -134,7 +142,7 @@ class GFSSource():
 
     def load_raster(self, raster_sql):
         try:
-            conn = psycopg2.connect(DATABASE_URL)
+            conn = psycopg2.connect(DATABASE_URI)
             with conn:
                 with conn.cursor() as curs:
                     logging.info('Loading raster into db')
