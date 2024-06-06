@@ -18,7 +18,6 @@ import psycopg2
 import dotenv
 
 environment = os.getenv('ENV', 'development')
-print(environment)
 if environment == 'production':
     dotenv.load_dotenv('.env.production.local')
 else:

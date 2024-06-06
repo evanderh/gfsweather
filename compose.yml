@@ -4,6 +4,8 @@ services:
     build: server
     ports:
       - "8000:8000"
+    environment:
+      - ENV=production
     volumes:
       - ./server:/app
     depends_on:
