@@ -17,48 +17,40 @@ from botocore import exceptions
 import psycopg2
 import dotenv
 
+from layers import LAYERS
+from legend import generate_legend
+
 environment = os.getenv('ENV', 'development')
 if environment == 'production':
-    dotenv.load_dotenv('.env.production.local')
+    dotenv.load_dotenv('../server/.env.production.local')
 else:
-    dotenv.load_dotenv('.env.development')
+    dotenv.load_dotenv('../server/.env.development.local')
 DATABASE_URI = os.getenv('DATABASE_URI')
 
+FORECAST_LIMIT = 1
 QUEUE_NAME = 'gfsweather'
-BUCKET_NAME = 'gfs-velocity'
-RASTER_TABLE = 'gfs.rasters'
-FORECAST_LIMIT = 48
-RASTER_BANDS = [
-    {
-        'element': 'TMP',
-        'layer': '2-HTGL',
-    }, {
-        'element': 'PRATE',
-        'layer': '0-SFC',
-    }, {
-        'element': 'TCDC',
-        'layer': '0-EATM',
-    }, {
-        'element': 'PRMSL',
-        'layer': '0-MSL',
-    }, {
-        'element': 'RH',
-        'layer': '2-HTGL',
-    }
-]
+LAYERS_PATH = '../layers'
 
 s3 = boto3.client('s3')
 sqs = boto3.client('sqs')
-
 
 class GFSSource():
     def __init__(self, bucket, key, metadata):
         self.bucket = bucket
         self.object_key = key
-
         self.cycle_datetime = metadata['cycle_datetime']
         self.forecast_hour = metadata['forecast_hour']
-        self.cycle_key = f'{self.cycle_datetime}+{self.forecast_hour}'
+
+        self.cycle_path = os.path.join(LAYERS_PATH,
+                                       self.cycle_datetime.isoformat()[:13])
+        if not os.path.exists(self.cycle_path):
+            os.mkdir(self.cycle_path)
+
+        forecast_dt = self.cycle_datetime + timedelta(hours=int(self.forecast_hour))
+        self.forecast_path = os.path.join(self.cycle_path,
+                                          forecast_dt.isoformat()[:13])
+        if not os.path.exists(self.forecast_path):
+            os.mkdir(self.forecast_path)
     
     def __enter__(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -69,21 +61,24 @@ class GFSSource():
         shutil.rmtree(self.tmpdir)
 
     def etl(self):
-        if (int(self.forecast_hour) > FORECAST_LIMIT):
+        if (int(self.forecast_hour) >= FORECAST_LIMIT):
             logging.info('Ignoring forecast_hour=%s' % self.forecast_hour)
             return
 
         logging.info('Starting ETL: %s' % self.object_key)
         self.extract()
 
-        raster_sql = self.transform_raster()
         velocity_json = self.transform_velocity()
-        self.load_raster(raster_sql)
-        self.load_1p00(velocity_json)
+        self.load_velocity(velocity_json)
+
+        self.transform_rasters()
+        self.load_rasters()
 
         logging.info('ETL complete: %s' % self.object_key)
 
     def extract(self):
+        if os.path.exists(self.filename):
+            return
         try:
             logging.info('Downloading')
             s3.download_file(self.bucket, self.object_key, self.filename)
@@ -91,23 +86,11 @@ class GFSSource():
             logging.error("Unable to download: %s" % e)
             raise
 
-    def transform_raster(self):
-        logging.info('Filtering raster')
-        tmp_filename = os.path.join(self.tmpdir, 'tmp_raster.tif')
-        filter_grib(tmp_filename, self.filename, self.forecast_hour, RASTER_BANDS)
-
-        logging.info('Reprojecting raster')
-        output_filename = os.path.join(self.tmpdir, self.cycle_key)
-        warp_grib(output_filename, tmp_filename, 1800, 1800)
-
-        logging.info('Generating raster SQL')
-        return generate_raster_sql(output_filename)
-
     def transform_velocity(self):
         ugrd = self.transform_velocity_element('UGRD')
         vgrd = self.transform_velocity_element('VGRD')
 
-        result_filename = os.path.join(self.tmpdir, 'result.json')
+        result_filename = os.path.join(self.tmpdir, 'wind_velocity.json')
         with open(result_filename, 'w') as f:
             json.dump([ugrd, vgrd], f)
 
@@ -118,13 +101,14 @@ class GFSSource():
         band = [{
             'element': grib_element,
             'layer': '10-HTGL',
+            'pdtn': '0',
         }]
         tmp_filename = os.path.join(self.tmpdir, 'tmp_velocity.tif')
-        filter_grib(tmp_filename, self.filename, self.forecast_hour, band)
+        filter_raster(tmp_filename, self.filename, band)
 
         logging.info('Downsampling %s' % grib_element)
         downsample_filename = os.path.join(self.tmpdir, 'downsampled.tif')
-        warp_grib(downsample_filename, tmp_filename, 360, 181, reproject=False)
+        warp_raster(downsample_filename, tmp_filename, 360, 181, reproject=False)
 
         logging.info('Generating %s data' % grib_element)
         data_filename = os.path.join(self.tmpdir, 'velocity_data.json')
@@ -139,24 +123,68 @@ class GFSSource():
                 'data': [ round(n, 2) for n in json.loads(f.read()) ],
             }
 
-    def load_raster(self, raster_sql):
+    def load_velocity(self, velocity_json):
+        dest_path = os.path.join(self.forecast_path, 'wind_velocity.json')
+        shutil.move(velocity_json, dest_path)
+
+    def transform_rasters(self):
+        for layer in LAYERS:
+            bandname = layer['name']
+            logging.info('Filtering %s' % bandname)
+            filtered_filename = os.path.join(self.tmpdir, f'{bandname}.filtered.tif')
+            filter_raster(filtered_filename,
+                          self.filename,
+                          [layer['band']],
+                          tuple(map(str, layer['scale'])))
+
+            logging.info('Reprojecting %s' % bandname)
+            projected_filename = os.path.join(self.tmpdir, f'{bandname}.projected.tif')
+            warp_raster(projected_filename, filtered_filename, 6400, 6400)
+
+            color_table_path = os.path.join(self.tmpdir, 'color_table.txt')
+            with open(color_table_path, 'w') as f:
+                scale = layer['scale']
+                scale_range = scale[1] - scale[0]
+                bit_value = scale_range / 255
+                for row in layer['color_scale']:
+                    scaled_value = round((row[0] - scale[0]) / bit_value)
+                    scaled_row = ' '.join([str(scaled_value), *map(str, row[1:])])
+                    f.write(scaled_row + '\n')
+
+            logging.info('Shading %s' % bandname)
+            shaded_filename = os.path.join(self.tmpdir, f'{bandname}.shaded.tif')
+            gdal.DEMProcessing(shaded_filename,
+                               projected_filename,
+                               'color-relief',
+                               colorFilename=color_table_path)
+
+            tiles_dir = os.path.join(self.forecast_path, bandname)
+            generate_tiles(tiles_dir, shaded_filename, 14, '2-6')
+
+            legend_path = os.path.join(LAYERS_PATH, f'{bandname}.png')
+            generate_legend(layer, legend_path)
+
+    def load_rasters(self):
         try:
             conn = psycopg2.connect(DATABASE_URI)
             with conn:
                 with conn.cursor() as curs:
-                    logging.info('Loading raster into db')
                     cycle_id = insert_forecast_cycle(curs,
                                                      self.cycle_datetime)
-                    insert_cycle_hour(curs,
-                                      self.cycle_key,
-                                      self.forecast_hour,
-                                      cycle_id)
-                    curs.execute(raster_sql)
+                    insert_forecast_hour(curs,
+                                         self.forecast_hour,
+                                         cycle_id)
 
-                    hours = select_all_cycle_hours(curs, cycle_id)
-                    if set(hours) == set(range(FORECAST_LIMIT + 1)):
+                    hours = select_all_forecast_hours(curs, cycle_id)
+                    if set(hours) == set(range(FORECAST_LIMIT)):
                         update_forecast_cycle(curs, cycle_id)
-                        delete_previous_cycles(curs, cycle_id)
+                        prev_cycle_dts = delete_previous_cycles(curs, cycle_id)
+                        for cycle_dt in prev_cycle_dts:
+                            cycle_path = os.path.join(LAYERS_PATH,
+                                                      cycle_dt.isoformat()[:13])
+                            shutil.rmtree(cycle_path)
+
+
         except Exception as e:
             logging.exception('Error loading raster into db %s' % e)
             raise
@@ -164,48 +192,45 @@ class GFSSource():
             if conn:
                 conn.close()
 
-    def load_1p00(self, velocity_json):
-        datetime = self.cycle_datetime + timedelta(hours=int(self.forecast_hour))
-        object_name = f'{datetime.isoformat()[:13]}.json'
-        try:
-            s3.upload_file(velocity_json, BUCKET_NAME, object_name)
-        except exceptions.ClientError as e:
-            logging.exception('Unable to upload velocity to S3: %s' % e)
-            raise
-
-def get_band_info(filename, forecast_hour, filter_bands):
+def get_band_info(filename, filter_bands):
     # https://gdal.org/programs/gdalinfo.html
     info = gdal.Info(filename, format='json')
-    forecast_seconds = int(forecast_hour) * 3600
 
     result = []
     for filter_band in filter_bands:
         def find_band(band):
             metadata = band['metadata']['']
             return (filter_band['element'] == metadata['GRIB_ELEMENT'] and
-                    filter_band['layer'] == metadata['GRIB_SHORT_NAME'] )
+                    filter_band['layer'] == metadata['GRIB_SHORT_NAME'] and
+                    filter_band['pdtn'] == metadata['GRIB_PDS_PDTN'])
 
         item = next(filter(find_band, info['bands']))
         result.append(item)
 
     return result
 
-def filter_grib(dest_file, src_file, forecast_hour, filter_bands):
-    bands = get_band_info(src_file, forecast_hour, filter_bands)
+def filter_raster(dest_file, src_file, filter_bands, scale=None):
+    bands = get_band_info(src_file, filter_bands)
     logging.info('Filter found bands=%s' %
                  [b['metadata']['']['GRIB_ELEMENT'] for b in bands])
 
     options = ' '.join([
-        '-of Gtiff',                        # output GeoTIFF
-        '-ot Float32',                      # convert to 32 bit float
-        '-projwin -180 85.06 180 -85.06',   # clip to mercator projection
-                                            # select output bands
+        '-a_nodata', 'none',
+        '-of Gtiff',    # output GeoTIFF
+                        # select output bands
         ' '.join([f'-b {band["band"]}' for band in bands])
     ])
+    if scale:
+        options = ' '.join([
+            options,
+            '-ot', 'Byte',
+            '-scale', *scale
+        ])
+
     # https://gdal.org/programs/gdal_translate.html
     gdal.Translate(dest_file, src_file, options=options)
 
-def warp_grib(dest_file, src_file, xres, yres, reproject=True):
+def warp_raster(dest_file, src_file, xres, yres, reproject=True):
     options = [
         '-r cubicspline',           # resample method
         '-ts', str(xres), str(yres) # set pixel height and width
@@ -220,29 +245,6 @@ def warp_grib(dest_file, src_file, xres, yres, reproject=True):
     options = ' '.join(options)
     # https://gdal.org/programs/gdalwarp.html
     gdal.Warp(dest_file, src_file, options=options)
-
-def generate_raster_sql(src_file):
-    cmd = [
-        'raster2pgsql',         # https://postgis.net/docs/using_raster_dataman.html#RT_Raster_Loader
-        '-s', '3857',           # use srid 3857
-        '-C',                   # use standard raster contraints
-        '-k',
-        '-F',                   # include filename as column, used to index forecast hour
-        '-n', 'cycle_hour_key', # name the filename column
-        '-t', 'auto',           # cut raster into appropriately sized tile
-        '-a',                   # append data to table
-        src_file,               # input raster file
-        RASTER_TABLE,           # destination table name
-    ]
-    try:
-        result = subprocess.run(cmd,
-                                check=True,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-        return result.stdout
-    except subprocess.CalledProcessError as e:
-        logging.exception('Unable to generate raster SQL: %s' % e)
-        raise
 
 def generate_velocity_data(dest_file, src_file):
     cmd = [
@@ -276,39 +278,51 @@ def generate_velocity_metadata(src_file):
         'dy': 1.0
     }
 
+def generate_tiles(dest_dir, src_file, processes, zoom):
+    cmd = [
+        'gdal2tiles.py',
+        '--processes', str(processes),
+        '-z', zoom,
+        src_file,
+        dest_dir,
+    ]
+    try:
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as e:
+        logging.exception('Unable to generate velocity json: %s' % e)
+        raise
 
 def insert_forecast_cycle(cursor, datetime):
     query = """
     WITH upsert AS (
-        INSERT INTO gfs.forecast_cycles (datetime, is_complete)
+        INSERT INTO forecast_cycles (datetime, is_complete)
         VALUES (%(datetime)s, false)
         ON CONFLICT (datetime) DO NOTHING
         RETURNING id
     )
     SELECT * FROM upsert
     UNION 
-        SELECT id FROM gfs.forecast_cycles 
+        SELECT id FROM forecast_cycles 
         WHERE datetime=%(datetime)s
     """
     cursor.execute(query, { 'datetime': datetime })
     result = cursor.fetchone()
     return result[0] if result else None
 
-def insert_cycle_hour(cursor, key, hour, cycle_id):
+def insert_forecast_hour(cursor, hour, cycle_id):
     query = """
-    INSERT INTO gfs.cycle_hours (key, hour, cycle_id)
-    VALUES (%(key)s, %(hour)s, %(cycle_id)s)
-    ON CONFLICT (key) DO NOTHING
+    INSERT INTO forecast_hours (hour, cycle_id)
+    VALUES (%(hour)s, %(cycle_id)s)
+    ON CONFLICT (hour, cycle_id) DO NOTHING
     """
     cursor.execute(query, {
-        'key': key,
         'hour': hour,
         'cycle_id': cycle_id
     })
 
-def select_all_cycle_hours(cursor, cycle_id):
+def select_all_forecast_hours(cursor, cycle_id):
     query = """
-    SELECT hour FROM gfs.cycle_hours
+    SELECT hour FROM forecast_hours
     WHERE cycle_id=%(cycle_id)s
     """
     cursor.execute(query, {
@@ -319,7 +333,7 @@ def select_all_cycle_hours(cursor, cycle_id):
 
 def update_forecast_cycle(cursor, cycle_id):
     query = """
-    UPDATE gfs.forecast_cycles SET is_complete = true
+    UPDATE forecast_cycles SET is_complete = true
     WHERE id=%(cycle_id)s
     """
     cursor.execute(query, {
@@ -328,12 +342,12 @@ def update_forecast_cycle(cursor, cycle_id):
 
 def delete_previous_cycles(cursor, cycle_id):
     query = """
-    DELETE FROM gfs.forecast_cycles
+    DELETE FROM forecast_cycles
     WHERE datetime < (
-        SELECT datetime FROM gfs.forecast_cycles
+        SELECT datetime FROM forecast_cycles
         WHERE id=%(cycle_id)s
     )
-    RETURNING id
+    RETURNING datetime
     """
     cursor.execute(query, { 'cycle_id': cycle_id })
     result = cursor.fetchall()

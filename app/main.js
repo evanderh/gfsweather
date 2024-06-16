@@ -13,15 +13,20 @@ import './Legend.js';
 import { config } from './config.js';
 import { layersConfig } from './LayersConfig.js';
 
-fetch(`${config.SERVER_URL}/forecast_cycle`)
+fetch(`${config.API_URL}/forecast_cycle`)
     .then(response => response.json())
     .then(data => {
         let { startDatetime, hourLimit } = data;
+        let start = (new Date(startDatetime+'Z')).toISOString()
+                                                 .substring(0, 13);
+
         let map = L.map('map', {
             center: [20, -10],
             zoom: 3,
             minZoom: 3,
-            maxZoom: 11,
+            maxZoom: 6,
+            zoomSnap: 0.5,
+            zoomDelta: 1,
             maxBounds: [[-85, -720], [85, 720]],
             timeDimensionControl: true,
             timeDimensionControlOptions: {
@@ -41,17 +46,14 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
             }
         });
 
-        L.control.legend({
-            serverUrl: config.SERVER_URL,
-        }).addTo(map);
 
-        L.tileLayer(`${config.TILES_SERVER_URL}/styles/osm-bright/256/{z}/{x}/{y}.png`, {
+        L.tileLayer(`${config.TILES_URL}/osm-bright/256/{z}/{x}/{y}.png`, {
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            zIndex: 9,
+            zIndex: 19,
         }).addTo(map);
 
         L.timeDimension.velocityLayer({
-            baseURL: config.S3_BASE_URL,
+            baseURL: `${config.LAYERS_URL}/${start}`,
             velocityLayerOptions: {
                 velocityScale: 0.01,
                 colorScale: ['#888'],
@@ -61,10 +63,20 @@ fetch(`${config.SERVER_URL}/forecast_cycle`)
         var layers = {}
         Object.entries(layersConfig).forEach(([name, layer]) => {
             layers[name] = L.timeDimension.timeLayer(
-                L.tileLayer(`${config.SERVER_URL}/${layer}/{d}/{z}/{x}/{y}.png`)
+                L.tileLayer(`${config.LAYERS_URL}/${start}/{d}/${layer}/{z}/{x}/{y}.png`, {
+                    tms: true,
+                })
             );
         })
-        layers['Temperature'].addTo(map)
+
+        var defaultLayer = 'Temperature';
+
+        layers[defaultLayer].addTo(map)
+
+        L.control.legend({
+            baseUrl: config.LAYERS_URL,
+            defaultLayer,
+        }).addTo(map);
 
         var layersControl = L.control.layers(layers, []);
         layersControl.addTo(map);

@@ -67,8 +67,10 @@ L.TimeDimension.VelocityLayer = L.TimeDimension.Layer.extend({
     },
 
     _constructQuery: function(time) {
-        var datetime = new Date(time);
-        var path = `/${datetime.toISOString().slice(0, 13)}.json`;
+        var date = new Date(time);
+        var dateFormatted = date.toISOString().slice(0, 13)
+
+        var path = `/${dateFormatted}/wind_velocity.json`;
         return this._baseURL + path;
     },
 

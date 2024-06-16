@@ -1,6 +1,6 @@
 app/config.js
+layers/
 
-**/assets/**
 **/venv
 **/__pycache__/**
 *.mbtiles

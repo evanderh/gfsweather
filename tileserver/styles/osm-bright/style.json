@@ -1864,7 +1864,7 @@
                 "visibility": "visible"
             },
             "paint": {
-                "line-color": "hsl(356, 32%, 83%)",
+                "line-color": "#666",
                 "line-width": [
                     "interpolate",
                     [
@@ -1978,7 +1978,7 @@
                 "visibility": "visible"
             },
             "paint": {
-                "line-color": "hsl(356, 32%, 83%)",
+                "line-color": "#666",
                 "line-width": [
                     "interpolate",
                     [
@@ -2128,7 +2128,7 @@
                 "visibility": "visible"
             },
             "paint": {
-                "line-color": "hsl(354, 33%, 88%)",
+                "line-color": "#666",
                 "line-width": [
                     "interpolate",
                     [
@@ -2183,19 +2183,7 @@
                 "visibility": "visible"
             },
             "paint": {
-                "line-color": [
-                    "interpolate",
-                    [
-                        "linear"
-                    ],
-                    [
-                        "zoom"
-                    ],
-                    4,
-                    "hsl(354, 33%, 88%)",
-                    6,
-                    "hsl(356,23%,84%)"
-                ],
+                "line-color": "#666",
                 "line-width": [
                     "interpolate",
                     [
