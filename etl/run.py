@@ -27,7 +27,7 @@ else:
     dotenv.load_dotenv('../server/.env.development.local')
 DATABASE_URI = os.getenv('DATABASE_URI')
 
-FORECAST_LIMIT = 1
+FORECAST_LIMIT = 3
 NPROCESSES = 4
 QUEUE_NAME = 'gfsweather'
 LAYERS_PATH = '../layers'
@@ -67,7 +67,7 @@ class GFSSource():
         logging.info('Processing %s:%s' % (cycle, self.forecast_hour))
 
         if (int(self.forecast_hour) >= FORECAST_LIMIT):
-            logging.info('Forecast out of range' % self.forecast_hour)
+            logging.info('Forecast out of range')
             return
 
         self.create_dirs()
