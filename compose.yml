@@ -32,7 +32,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf
       - ./app/dist:/usr/share/nginx/html
       - ./layers:/usr/share/nginx/layers
     depends_on:
