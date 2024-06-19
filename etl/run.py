@@ -28,6 +28,7 @@ else:
 DATABASE_URI = os.getenv('DATABASE_URI')
 
 FORECAST_LIMIT = 1
+NPROCESSES = 4
 QUEUE_NAME = 'gfsweather'
 LAYERS_PATH = '../layers'
 
@@ -40,7 +41,16 @@ class GFSSource():
         self.object_key = key
         self.cycle_datetime = metadata['cycle_datetime']
         self.forecast_hour = metadata['forecast_hour']
+    
+    def __enter__(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.filename = os.path.join(self.tmpdir, 'gfs.grib')
+        return self
 
+    def __exit__(self, exc_type, exc_value, traceback):
+        shutil.rmtree(self.tmpdir)
+
+    def create_dirs(self):
         self.cycle_path = os.path.join(LAYERS_PATH,
                                        self.cycle_datetime.isoformat()[:13])
         if not os.path.exists(self.cycle_path):
@@ -51,21 +61,16 @@ class GFSSource():
                                           forecast_dt.isoformat()[:13])
         if not os.path.exists(self.forecast_path):
             os.mkdir(self.forecast_path)
-    
-    def __enter__(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.filename = os.path.join(self.tmpdir, 'gfs.grib')
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        shutil.rmtree(self.tmpdir)
 
     def etl(self):
+        cycle = self.cycle_datetime.isoformat()[:13]
+        logging.info('Processing %s:%s' % (cycle, self.forecast_hour))
+
         if (int(self.forecast_hour) >= FORECAST_LIMIT):
-            logging.info('Ignoring forecast_hour=%s' % self.forecast_hour)
+            logging.info('Forecast out of range' % self.forecast_hour)
             return
 
-        logging.info('Starting ETL: %s' % self.object_key)
+        self.create_dirs()
         self.extract()
 
         velocity_json = self.transform_velocity()
@@ -159,7 +164,7 @@ class GFSSource():
                                colorFilename=color_table_path)
 
             tiles_dir = os.path.join(self.forecast_path, bandname)
-            generate_tiles(tiles_dir, shaded_filename, 14, '2-6')
+            generate_tiles(tiles_dir, shaded_filename, NPROCESSES, '2-6')
 
             legend_path = os.path.join(LAYERS_PATH, f'{bandname}.png')
             generate_legend(layer, legend_path)
@@ -183,7 +188,6 @@ class GFSSource():
                             cycle_path = os.path.join(LAYERS_PATH,
                                                       cycle_dt.isoformat()[:13])
                             shutil.rmtree(cycle_path)
-
 
         except Exception as e:
             logging.exception('Error loading raster into db %s' % e)
