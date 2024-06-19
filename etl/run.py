@@ -27,7 +27,7 @@ else:
     dotenv.load_dotenv('../server/.env.development.local')
 DATABASE_URI = os.getenv('DATABASE_URI')
 
-FORECAST_LIMIT = 3
+FORECAST_LIMIT = 24
 NPROCESSES = 4
 QUEUE_NAME = 'gfsweather'
 LAYERS_PATH = '../layers'

@@ -207,11 +207,8 @@ sunsd_layer = {
 
 LAYERS = [
     tmp_layer,
-    trotmp_layer,
     prate_layer,
-    tcdc_layer,
     pres_layer,
     rh_layer,
     gust_layer,
-    sunsd_layer
 ]
