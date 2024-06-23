@@ -1,12 +1,19 @@
 #!/usr/bin/env python
 
+import os
+import dotenv
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes import router
+environment = os.getenv('ENV', 'development')
+if environment == 'production':
+    dotenv.load_dotenv('.env.production.local')
+else:
+    dotenv.load_dotenv('.env.development')
 
 app = FastAPI()
+from routes import router
 
 # Configure CORS middleware
 app.add_middleware(
