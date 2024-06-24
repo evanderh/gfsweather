@@ -163,9 +163,11 @@ class GFSSource():
                                'color-relief',
                                colorFilename=color_table_path)
 
+            logging.info('Generating tiles')
             tiles_dir = os.path.join(self.forecast_path, bandname)
             generate_tiles(tiles_dir, shaded_filename, NPROCESSES, '2-6')
 
+            logging.info('Generating legend')
             legend_path = os.path.join(LAYERS_PATH, f'{bandname}.png')
             generate_legend(layer, legend_path)
 
@@ -174,19 +176,23 @@ class GFSSource():
             conn = psycopg2.connect(DATABASE_URI)
             with conn:
                 with conn.cursor() as curs:
+                    logging.info('Inserting cycle %s' % self.cycle_datetime)
                     cycle_id = insert_forecast_cycle(curs,
                                                      self.cycle_datetime)
+                    logging.info('Inserting hour %s' % cycle_id)
                     insert_forecast_hour(curs,
                                          self.forecast_hour,
                                          cycle_id)
 
                     hours = select_all_forecast_hours(curs, cycle_id)
                     if set(hours) == set(range(FORECAST_LIMIT)):
+                        logging.info('Cycle complete')
                         update_forecast_cycle(curs, cycle_id)
                         prev_cycle_dts = delete_previous_cycles(curs, cycle_id)
                         for cycle_dt in prev_cycle_dts:
                             cycle_path = os.path.join(LAYERS_PATH,
                                                       cycle_dt.isoformat()[:13])
+                            logging.info('Deleting %s' % cycle_path)
                             shutil.rmtree(cycle_path)
 
         except Exception as e:
