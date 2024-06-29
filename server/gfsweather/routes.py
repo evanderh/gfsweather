@@ -1,23 +1,24 @@
-from sqlalchemy import select, func
-from sqlalchemy.orm import Session
-from fastapi import Depends, APIRouter
-
-from database import get_session
-from models import ForecastCycle, ForecastHour
-
+import os
+from datetime import datetime
+from fastapi import APIRouter
 
 router = APIRouter(prefix='/api')
 
+def get_symlink_target(symlink_path):
+    if os.path.islink(symlink_path):
+        return os.readlink(symlink_path)
+    else:
+        return None
 
 @router.get("/forecast_cycle")
-def cycle_datetime(session: Session = Depends(get_session)):
-    start_datetime, hour_limit = session.execute(
-        select(ForecastCycle.datetime, func.max(ForecastHour.hour))
-        .join(ForecastCycle, ForecastHour.cycle_id == ForecastCycle.id)
-        .where(ForecastCycle.is_complete == True)
-        .group_by(ForecastCycle.datetime)
-    ).first()
+def cycle_datetime():
+    current_path = os.path.join('layers', 'current')
+    current_cycle = get_symlink_target(current_path)
+    startDatetime = datetime.strptime(current_cycle,
+                                      '%Y-%m-%dT%H/')
+    hourLimit = len(os.listdir(current_path)) - 1
+    
     return {
-        'startDatetime': start_datetime,
-        'hourLimit': hour_limit
+        'startDatetime': startDatetime,
+        'hourLimit': hourLimit
     }

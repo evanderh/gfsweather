@@ -8,6 +8,7 @@ services:
       - ENV=production
     volumes:
       - ./server:/app
+      - ./layers:/app/layers
 
   tileserver:
     image: maptiler/tileserver-gl
