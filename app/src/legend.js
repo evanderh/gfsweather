@@ -1,8 +1,8 @@
-import { layersConfig } from "./LayersConfig";
+import { layers } from "./layers";
 
 L.Control.Legend = L.Control.extend({
     getSrc: function(layer) {
-        return `${this.options.baseUrl}/${layersConfig[layer]}.png`;
+        return `${this.options.baseUrl}/${layers[layer]}.png`;
     },
 
     onAdd: function(map) {

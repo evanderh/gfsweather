@@ -1,4 +1,4 @@
-export const layersConfig = {
+export const layers = {
     Temperature: 'tmp',
     // 'Apparent Temperature': 'aptmp',
     // 'Tropopause Temperature': 'trotmp',

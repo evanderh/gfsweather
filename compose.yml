@@ -7,19 +7,21 @@ services:
     volumes:
       - ./server:/app
       - ./layers:/app/layers
-    depends_on:
-      - db
+    environment:
+      - FASTAPI_ENV=${FASTAPI_ENV}
 
   tileserver:
     image: maptiler/tileserver-gl
     ports:
-      - "8081:8080"
+      - "8001:8080"
     volumes:
       - ./tileserver:/data
 
   nginx:
     image: nginx:latest
     container_name: nginx_proxy
+    profiles:
+      - dev
     ports:
       - "80:80"
     volumes:
