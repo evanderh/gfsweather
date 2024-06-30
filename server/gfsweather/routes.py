@@ -15,7 +15,7 @@ def cycle_datetime():
     current_path = os.path.join('layers', 'current')
     current_cycle = get_symlink_target(current_path)
     startDatetime = datetime.strptime(current_cycle,
-                                      '%Y-%m-%dT%H/')
+                                      '%Y-%m-%dT%H')
     hourLimit = len(os.listdir(current_path)) - 1
     
     return {
