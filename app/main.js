@@ -100,11 +100,15 @@ function render(startDatetime, numForecasts) {
     layersControl.addTo(map);
 }
 
+let lastStartDatetime;
 async function init() {
     const data = await fetchData();
     if (data) {
         let { startDatetime, numForecasts } = data;
-        render(startDatetime, numForecasts);
+        if (lastStartDatetime !== startDatetime) {
+            render(startDatetime, numForecasts);
+            lastStartDatetime = startDatetime;
+        }
     }
 }
 
