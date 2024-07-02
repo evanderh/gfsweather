@@ -25,7 +25,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.dev.conf:/etc/nginx/nginx.conf
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf
       - ./app/dist:/usr/share/nginx/html
       - ./layers:/usr/share/nginx/layers
     depends_on:

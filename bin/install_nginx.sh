@@ -3,7 +3,7 @@
 ENVIRONMENT=${ENV:-development}
 echo "Running in $ENVIRONMENT environment"
 
-CONF_FILENAME="gfsweather.conf"
+CONF_FILENAME="nginx/gfsweather.conf"
 NGINX_SITES_AVAILABLE="/etc/nginx/sites-available"
 NGINX_SITES_ENABLED="/etc/nginx/sites-enabled"
 STATIC_FOLDER="/var/www/gfsweather"
