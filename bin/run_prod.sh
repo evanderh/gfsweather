@@ -1,2 +1,2 @@
 #!/bin/bash
-docker compose --env-file .env.prod up --build
+docker compose --env-file config/.env.prod up --build

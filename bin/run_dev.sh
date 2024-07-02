@@ -1,2 +1,2 @@
 #!/bin/bash
-docker compose --profile dev --env-file .env.dev up --build
+docker compose --profile dev --env-file config/.env.dev up --build
