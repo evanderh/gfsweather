@@ -1,3 +1,3 @@
 # gfsweather
 
-![output](https://github.com/evanderh/gfsweather/assets/3112477/f0848188-b140-4295-af92-57446a46b66f)
+![demo](https://github.com/evanderh/gfsweather/assets/3112477/17e4dce5-767b-4d1f-bc99-72910bd57830)
