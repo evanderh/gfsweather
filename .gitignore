@@ -1,7 +1,4 @@
 layers/
-
-**/venv
-**/__pycache__/**
 *.mbtiles
 
 # Logs

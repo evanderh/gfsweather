@@ -1,32 +1,31 @@
 services:
 
-  server:
-    build: server
+  frontend:
+    build: frontend
     ports:
-      - "8000:8000"
+      - "5173:5173"
     volumes:
-      - ./server:/app
-      - ./layers:/app/layers
+      - ./frontend:/app
+      - /app/node_modules
     environment:
-      - FASTAPI_ENV=${FASTAPI_ENV}
+      - VITE_SERVER_URL=http://localhost:3000
+      - VITE_TILES_URL=http://localhost:8080
 
+  backend:
+    build: backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./layers:/app/layers
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+  
   tileserver:
     image: maptiler/tileserver-gl
     ports:
-      - "8001:8080"
+      - "8080:8080"
     volumes:
       - ./tileserver:/data
-
-  nginx:
-    image: nginx:latest
-    container_name: nginx_proxy
-    profiles:
-      - dev
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf
-      - ./app/dist:/usr/share/nginx/html
-      - ./layers:/usr/share/nginx/layers
-    depends_on:
-      - server

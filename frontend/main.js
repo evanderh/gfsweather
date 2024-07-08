@@ -10,13 +10,14 @@ import './src/TimeLayer.js';
 import './src/TimeVelocityLayer.js';
 import './src/legend.js';
 import { layers } from './src/layers.js';
-import { API_URL, TILES_URL, LAYERS_URL } from './config.js';
 
 const hoursPerForecast = 3;
+const SERVER_URL = import.meta.env.VITE_SERVER_URL;
+const TILES_URL = import.meta.env.VITE_TILES_URL;
 
 async function fetchData() {
     try {
-        const response = await fetch(`${API_URL}/forecast_cycle`)
+        const response = await fetch(`${SERVER_URL}/api/forecast_cycle`)
         if (!response.ok) {
             throw new Error("Failed to fetch forecast cycle!")
         }
@@ -32,7 +33,7 @@ let map;
 
 function render(startDatetime, numForecasts) {
     let hourLimit = (numForecasts - 1) * hoursPerForecast;
-    let start = (new Date(startDatetime+'Z')).toISOString()
+    let start = (new Date(startDatetime)).toISOString()
                                              .substring(0, 13);
 
     if (map) {
@@ -50,7 +51,7 @@ function render(startDatetime, numForecasts) {
         maxBounds: [[-85, -720], [85, 720]],
         timeDimension: true,
         timeDimensionOptions: {
-            timeInterval: `${startDatetime}Z/PT${hourLimit}H`,
+            timeInterval: `${startDatetime}/PT${hourLimit}H`,
             period: `PT${hoursPerForecast}H`,
         },
         timeDimensionControl: true,
@@ -65,13 +66,13 @@ function render(startDatetime, numForecasts) {
         },
     });
 
-    L.tileLayer(`${TILES_URL}/osm-bright/256/{z}/{x}/{y}.png`, {
+    L.tileLayer(`${TILES_URL}/styles/osm-bright/256/{z}/{x}/{y}.png`, {
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         zIndex: 19,
     }).addTo(map);
 
     L.timeDimension.velocityLayer({
-        baseURL: `${LAYERS_URL}/${start}`,
+        baseURL: `${SERVER_URL}/layers/${start}`,
         velocityLayerOptions: {
             velocityScale: 0.01,
             colorScale: ['#888'],
@@ -81,7 +82,7 @@ function render(startDatetime, numForecasts) {
     var tileLayers = {}
     Object.entries(layers).forEach(([name, layer]) => {
         tileLayers[name] = L.timeDimension.timeLayer(
-            L.tileLayer(`${LAYERS_URL}/${start}/{d}/${layer}/{z}/{x}/{y}.png`, {
+            L.tileLayer(`${SERVER_URL}/layers/${start}/{d}/${layer}/{z}/{x}/{y}.png`, {
                 tms: true,
             })
         );
@@ -92,7 +93,7 @@ function render(startDatetime, numForecasts) {
     tileLayers[defaultLayer].addTo(map)
 
     L.control.legend({
-        baseUrl: LAYERS_URL,
+        baseUrl: `${SERVER_URL}/layers`,
         defaultLayer,
     }).addTo(map);
 
