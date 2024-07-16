@@ -6,7 +6,6 @@ services:
       - "5173:5173"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
     environment:
       - VITE_SERVER_URL=http://localhost:3000
       - VITE_TILES_URL=http://localhost:8080

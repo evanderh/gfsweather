@@ -14,6 +14,7 @@
   "dependencies": {
     "leaflet": "^1.9.4",
     "leaflet-timedimension": "^1.1.1",
-    "leaflet-velocity": "^2.1.4"
+    "leaflet-velocity": "^2.1.4",
+    "mapbox-gl": "^3.5.1"
   }
 }
