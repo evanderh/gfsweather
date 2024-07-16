@@ -3,7 +3,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 import mapboxgl from 'mapbox-gl'; // or "const mapboxgl = require('mapbox-gl');"
 
-mapboxgl.accessToken = 'pk.eyJ1IjoiZXZhbmRlcmgiLCJhIjoiY2x5bnM3bzduMDlzZTJrcHRncXI4MWNiYyJ9.5IREPfoU_ulCHL0Oxjxq1w';
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 const SERVER_URL = import.meta.env.VITE_SERVER_URL;
 const TILES_URL = import.meta.env.VITE_TILES_URL;
 
@@ -81,33 +81,6 @@ map.on('load', () => {
 //     init();
 // });
 
-
-// import 'leaflet/dist/leaflet.css';
-// import 'leaflet-velocity/dist/leaflet-velocity.css';
-// import 'leaflet-timedimension/dist/leaflet.timedimension.control.css';
-
-// import L from 'leaflet';
-// import 'leaflet-velocity/dist/leaflet-velocity.js';
-// import 'leaflet-timedimension/dist/leaflet.timedimension.src.js';
-// import './src/TimeLayer.js';
-// import './src/TimeVelocityLayer.js';
-// import './src/legend.js';
-// import { layers } from './src/layers.js';
-
-
-
-// let map;
-
-// function render(startDatetime, numForecasts) {
-//     let hourLimit = (numForecasts - 1) * hoursPerForecast;
-//     let start = (new Date(startDatetime)).toISOString()
-//                                              .substring(0, 13);
-
-//     if (map) {
-//         map.off();
-//         map.remove()
-//     }
-    
 //     map = L.map('map', {
 //         center: [20, -10],
 //         zoom: 3,
